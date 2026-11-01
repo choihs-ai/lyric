@@ -28,6 +28,7 @@ header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px
 h1{font-family:"Black Han Sans","Apple SD Gothic Neo",sans-serif;font-weight:400;font-size:clamp(34px,10.5vw,92px);line-height:.9;margin:14px 0 8px;letter-spacing:-.01em;overflow-wrap:anywhere}
 .by{font:700 13px "Space Mono",ui-monospace,Menlo,monospace;color:var(--red);letter-spacing:.08em}
 .step{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;padding:22px 0;border-bottom:1px solid var(--line)}
+.step>div{min-width:0}
 .num{font:700 13px "Space Mono",ui-monospace,Menlo,monospace;color:var(--red);padding-top:3px}
 h2{font-size:17px;margin:0 0 12px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:13px;line-height:1.55;color:var(--mute);margin-top:10px}
@@ -72,6 +73,21 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
 .actions .btn{min-height:56px;font-size:15px}
 #recOut{margin-top:14px}
+#setup.busy .step,#setup.busy .actions{pointer-events:none;opacity:.4}
+.prog{height:6px;background:#1d1b19;margin-top:4px}
+.prog i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.grow{flex:1;font-size:14px;color:var(--fg)}
+.lines{list-style:none;margin:0 0 14px;padding:0}
+.lines .lsec{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;color:var(--mute);padding:14px 0 6px}
+.lines .lt{appearance:none;background:transparent;border:0;border-top:1px solid var(--line);color:var(--fg);font:inherit;text-align:left;
+  display:flex;gap:10px;align-items:center;width:100%;min-height:44px;padding:6px 8px;cursor:pointer}
+.lines .lt:focus-visible{outline:1px solid var(--red)}
+.lines .ln.on .lt,.lines .lc{background:#1a1816}
+.lines .tm{font:700 12px "Space Mono",ui-monospace,Menlo,monospace;color:var(--mute);min-width:62px}
+.lines .tx{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lines .pn{font:700 10px "Space Mono",ui-monospace,Menlo,monospace;background:var(--red);color:#fff;padding:2px 6px;letter-spacing:.06em}
+.lines .lc{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 12px}
+.lines .lc .btn{min-height:44px;padding:0 12px;font-size:13px;flex:1 1 auto}
 #recOut .row .btn{flex:1}
 
 /* hud */
@@ -87,6 +103,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo{flex:1;font-size:14px;line-height:1.45}
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
+#syncBar .hbtn:disabled{opacity:.45}
 #recBadge{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:14px;z-index:6;background:var(--red);color:#fff;font:700 12px "Space Mono",ui-monospace,Menlo,monospace;padding:8px 10px;letter-spacing:.1em}
 </style>
 </head>
@@ -97,7 +114,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
   <div class="top"><button class="hbtn" id="hMenu">설정</button><button class="hbtn" id="hFull">가리기</button></div>
   <div class="bot"><button class="hbtn" id="hPlay">❚❚</button><input type="range" id="seek" min="0" max="137.3" step="0.01" value="0"><span id="tc">0:00.0</span></div>
 </div>
-<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncStop">끝내기</button></div>
+<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo">되돌리기</button><button class="hbtn" id="syncStop">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
 
 <div id="setup">
@@ -180,11 +197,17 @@ Outro
     <h2>싱크</h2>
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
     <div class="note">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
-    <div class="row"><button class="btn ghost" id="bSync">탭 싱크 시작</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
-    <div class="note" id="syncNote">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요.</div>
+    <div class="row"><button class="btn ghost" id="bSync">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
+    <label class="chk"><input type="checkbox" id="cSlow"> 탭 싱크할 때 0.75배속으로 재생</label>
+    <div class="note" id="syncNote">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
+    <details class="help" id="lineEd"><summary>줄별 타이밍 다듬기&nbsp;<span id="lineCnt" class="dim"></span></summary>
+      <div class="note" style="margin:0 0 6px">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
+      <ol class="lines" id="lineList"></ol>
+    </details>
   </div></section>
 
-  <div class="actions"><button class="btn primary" id="bPlay">▶ 재생</button><button class="btn rec" id="bRec">● 녹화해서 영상 저장</button></div>
+  <div class="actions"><button class="btn primary" id="bPlay">▶ 재생</button><button class="btn rec" id="bRec">● 영상으로 저장</button></div>
+  <div class="note" id="expNote"></div>
   <div id="recOut" class="note"></div>
  </div>
 </div>
@@ -1297,6 +1320,117 @@ function present(t,pal){
 }
 
 /* ============================================================
+   75 · EXPORT — faster-than-realtime MP4. Renders every frame
+        offline with frame(t), encodes with WebCodecs (H.264 video,
+        AAC audio — Opus when AAC is unavailable) and muxes the MP4
+        in-page. 80_app falls back to realtime MediaRecorder capture
+        when exportPlan() finds no usable encoder pair.
+   ============================================================ */
+const FPS=30,VTS=FPS*1000,ASR=48000;
+let EXPORTING=false,EXP_CANCEL=false;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const toU8=d=>d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));
+/* AAC-LC AudioSpecificConfig for a known rate/channel count (we always request mp4a.40.2 at ASR, so this is exact) */
+function makeASC(sr,ch){const fi=[96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000].indexOf(sr);return Uint8Array.of(2<<3|fi>>1,(fi&1)<<7|ch<<3)}
+
+/* ---------- minimal MP4 (ISO BMFF) muxer: moov before mdat (fast start), one chunk per track per second ----------
+   track: {kind:'video', timescale, width, height, avcC, samples} | {kind:'audio', codec:'aac'|'opus', timescale, sampleRate, channels, bitrate, asc|preSkip, samples}
+   sample: {data:Uint8Array, dur (track ticks), cts (ticks, pts−dts), key}  — samples in decode order. Returns Blob parts. */
+function mp4Mux(tracks){
+  const u32=a=>{const o=new Uint8Array(a.length*4),d=new DataView(o.buffer);a.forEach((v,i)=>d.setUint32(i*4,v>>>0));return o};
+  const u16=a=>{const o=new Uint8Array(a.length*2),d=new DataView(o.buffer);a.forEach((v,i)=>d.setUint16(i*2,v&65535));return o};
+  const str=s=>Uint8Array.from(s,c=>c.charCodeAt(0)),Z=n=>new Uint8Array(n);
+  const box=(type,...parts)=>{let n=8;parts.forEach(p=>n+=p.length);const o=new Uint8Array(n);new DataView(o.buffer).setUint32(0,n);o.set(str(type),4);let k=8;parts.forEach(p=>{o.set(p,k);k+=p.length});return o};
+  const full=(type,ver,flags,...parts)=>box(type,u32([(ver<<24|flags)>>>0]),...parts);
+  const MAT=u32([0x10000,0,0,0,0x10000,0,0,0,0x40000000]);
+  tracks.forEach(T=>{let d=0;T.samples.forEach(s=>{s.dts=d;d+=s.dur});T.dur=d;T.chunks=[]});
+  const order=[],pos=tracks.map(()=>0),secs=Math.ceil(Math.max(...tracks.map(T=>T.dur/T.timescale)))+1;
+  for(let w=1;w<=secs;w++)tracks.forEach((T,k)=>{const s=[];
+    while(pos[k]<T.samples.length&&(w===secs||T.samples[pos[k]].dts<w*T.timescale))s.push(T.samples[pos[k]++]);
+    if(s.length){const c={s,size:s.reduce((a,x)=>a+x.data.length,0),off:0};T.chunks.push(c);order.push(c)}});
+  const rl=(S,f)=>{const e=[];S.forEach(s=>{const v=f(s);if(e.length&&e[e.length-1]===v)e[e.length-2]++;else e.push(1,v)});return e};
+  const esds=T=>{const a=[...T.asc],br=T.bitrate||192000,be=v=>[v>>>24&255,v>>>16&255,v>>>8&255,v&255];
+    const dsi=[5,a.length,...a],dcd=[4,13+dsi.length,0x40,0x15,0,0,0,...be(br),...be(br),...dsi];
+    return full('esds',0,0,Uint8Array.from([3,dcd.length+6,0,0,0,...dcd,6,1,2]))};
+  const entry=T=>T.kind==='video'
+    ?box('avc1',Z(6),u16([1]),Z(16),u16([T.width,T.height]),u32([0x480000,0x480000,0]),u16([1]),Z(32),u16([0x18,0xffff]),box('avcC',T.avcC))
+    :box(T.codec==='opus'?'Opus':'mp4a',Z(6),u16([1]),Z(8),u16([T.channels,16,0,0]),u32([T.sampleRate*65536]),
+      T.codec==='opus'?box('dOps',Uint8Array.of(0,T.channels),u16([T.preSkip]),u32([T.sampleRate]),u16([0]),Uint8Array.of(0)):esds(T));
+  const stbl=T=>{const S=T.samples,tt=rl(S,s=>s.dur),p=[full('stsd',0,0,u32([1]),entry(T)),full('stts',0,0,u32([tt.length/2,...tt]))];
+    if(S.some(s=>s.cts)){const ct=rl(S,s=>s.cts|0);p.push(full('ctts',1,0,u32([ct.length/2,...ct])))}
+    if(T.kind==='video'&&S.some(s=>!s.key)){const k=[];S.forEach((s,i)=>{if(s.key)k.push(i+1)});p.push(full('stss',0,0,u32([k.length,...k])))}
+    const sc=[];T.chunks.forEach((c,i)=>{if(!sc.length||sc[sc.length-2]!==c.s.length)sc.push(i+1,c.s.length,1)});
+    p.push(full('stsc',0,0,u32([sc.length/3,...sc])),full('stsz',0,0,u32([0,S.length,...S.map(s=>s.data.length)])),full('stco',0,0,u32([T.chunks.length,...T.chunks.map(c=>c.off)])));
+    return box('stbl',...p)};
+  const trak=(T,id)=>{const v=T.kind==='video',ms=Math.round(T.dur*1000/T.timescale);
+    return box('trak',full('tkhd',0,3,u32([0,0,id,0,ms,0,0]),u16([0,0,v?0:0x100,0]),MAT,u32([v?T.width*65536:0,v?T.height*65536:0])),
+      box('mdia',full('mdhd',0,0,u32([0,0,T.timescale,T.dur]),u16([0x55c4,0])),
+        full('hdlr',0,0,u32([0]),str(v?'vide':'soun'),Z(12),str(v?'VideoHandler':'SoundHandler'),Z(1)),
+        box('minf',v?full('vmhd',0,1,Z(8)):full('smhd',0,0,Z(4)),box('dinf',full('dref',0,0,u32([1]),full('url ',0,1))),stbl(T))))};
+  const moov=()=>box('moov',full('mvhd',0,0,u32([0,0,1000,Math.max(...tracks.map(T=>Math.round(T.dur*1000/T.timescale))),0x10000]),u16([0x100]),Z(10),MAT,Z(24),u32([tracks.length+1])),
+    ...tracks.map((T,i)=>trak(T,i+1)));
+  const ftyp=box('ftyp',str('isom'),u32([0x200]),str('isomiso2avc1mp41'));
+  const place=base=>{let o=base;order.forEach(c=>{c.off=o;o+=c.size})};
+  place(0);place(ftyp.length+moov().length+8);              // moov size doesn't depend on the offsets, so two passes are exact
+  const mdat=order.reduce((a,c)=>a+c.size,0)+8;if(mdat>0xffffffff)throw new Error('영상이 너무 커요 (4GB 초과)');
+  const hdr=new Uint8Array(8);new DataView(hdr.buffer).setUint32(0,mdat);hdr.set(str('mdat'),4);
+  return [ftyp,moov(),hdr,...order.flatMap(c=>c.s.map(s=>s.data))];
+}
+
+/* ---------- capability check: an H.264 config that fits W×H, plus AAC (or Opus) audio ---------- */
+async function exportPlan(){
+  if(!window.VideoEncoder||!window.VideoFrame||!window.AudioEncoder||!window.AudioData)return null;
+  let v=null,a=null;
+  for(const codec of ['avc1.640028','avc1.4d0028','avc1.420028']){const c={codec,width:W,height:H,bitrate:10e6,framerate:FPS,avc:{format:'avc'}};
+    try{if((await VideoEncoder.isConfigSupported(c)).supported){v=c;break}}catch(e){}}
+  for(const [codec,kind,bitrate] of [['mp4a.40.2','aac',192000],['opus','opus',160000]]){const c={codec,sampleRate:ASR,numberOfChannels:2,bitrate};
+    try{if((await AudioEncoder.isConfigSupported(c)).supported){a={cfg:c,kind};break}}catch(e){}}
+  return v&&a?{v,a}:null;
+}
+
+/* ---------- offline render + encode. onProg(fraction, secondsLeft). Throws Error('cancel') when EXP_CANCEL is set. ---------- */
+async function fastExport(plan,file,onProg){
+  EXPORTING=true;EXP_CANCEL=false;let err=null,venc=null,aenc=null;const fail=e=>{err=err||e};
+  try{
+    const ab=await file.arrayBuffer();const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(2,1,ASR);
+    const buf=await new Promise((res,rej)=>{const p=oc.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
+    /* audio first — it encodes far faster than realtime */
+    const kind=plan.a.kind,fd=kind==='aac'?1024:960,as=[];let adesc=null;
+    aenc=new AudioEncoder({output:(c,m)=>{if(m&&m.decoderConfig&&m.decoderConfig.description&&!adesc)adesc=toU8(m.decoderConfig.description);
+      let d=new Uint8Array(c.byteLength);c.copyTo(d);if(kind==='aac'&&d[0]===0xff&&(d[1]&0xf6)===0xf0)d=d.subarray(d[1]&1?7:9);   // strip ADTS if an encoder adds it
+      as.push({data:d,dur:c.duration?Math.round(c.duration*ASR/1e6):fd,cts:0,key:true})},error:fail});
+    aenc.configure(plan.a.cfg);
+    const L0=buf.getChannelData(0),R0=buf.numberOfChannels>1?buf.getChannelData(1):L0,B=ASR/10;
+    for(let o=0;o<buf.length;o+=B){if(err)throw err;if(EXP_CANCEL)throw new Error('cancel');
+      const n=Math.min(B,buf.length-o),d=new Float32Array(n*2);d.set(L0.subarray(o,o+n));d.set(R0.subarray(o,o+n),n);
+      const ad=new AudioData({format:'f32-planar',sampleRate:ASR,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(o*1e6/ASR),data:d});aenc.encode(ad);ad.close();
+      while(aenc.encodeQueueSize>8&&!err)await sleep(2);
+      if(o%(B*30)===0){onProg(0.04*o/buf.length,0);await sleep(0)}}
+    await aenc.flush();if(err)throw err;
+    /* video: every frame rendered offline through the normal frame(t) path */
+    const vs=[];let avcC=null;
+    venc=new VideoEncoder({output:(c,m)=>{if(m&&m.decoderConfig&&m.decoderConfig.description&&!avcC)avcC=toU8(m.decoderConfig.description);
+      const d=new Uint8Array(c.byteLength);c.copyTo(d);vs.push({data:d,key:c.type==='key',pts:Math.round(c.timestamp*VTS/1e6)})},error:fail});
+    venc.configure(plan.v);
+    const nF=Math.ceil(buf.duration*FPS),t0=performance.now();
+    for(let i=0;i<nF;i++){if(err)throw err;if(EXP_CANCEL)throw new Error('cancel');
+      frame(i/FPS);
+      const vf=new VideoFrame(cv,{timestamp:Math.round(i*1e6/FPS),duration:Math.round(1e6/FPS)});venc.encode(vf,{keyFrame:i%(FPS*2)===0});vf.close();
+      while(venc.encodeQueueSize>4&&!err)await sleep(1);
+      if(i%5===4||i===nF-1){const f=(i+1)/nF;onProg(0.04+0.95*f,(performance.now()-t0)/1000/f*(1-f));await sleep(0)}}
+    await venc.flush();if(err)throw err;
+    if(!avcC||!vs.length)throw new Error('H.264 인코더가 설정 정보를 주지 않았어요');
+    /* decode order → dts; any B-frame reordering becomes ctts offsets */
+    const sp=vs.map(s=>s.pts).sort((a,b)=>a-b);vs.forEach((s,i)=>{s.dur=i+1<vs.length?sp[i+1]-sp[i]:VTS/FPS;s.cts=s.pts-sp[i]});
+    const pre=adesc&&adesc.length>=12&&String.fromCharCode(...adesc.subarray(0,8))==='OpusHead'?adesc[10]|adesc[11]<<8:312;
+    const parts=mp4Mux([{kind:'video',timescale:VTS,width:W,height:H,avcC,samples:vs},
+      {kind:'audio',codec:kind,timescale:ASR,sampleRate:ASR,channels:2,bitrate:plan.a.cfg.bitrate,asc:makeASC(ASR,2),preSkip:pre,samples:as}]);
+    onProg(1,0);
+    return new Blob(parts,{type:'video/mp4'});
+  }finally{EXPORTING=false;[venc,aenc].forEach(e=>{try{if(e&&e.state!=='closed')e.close()}catch(x){}})}
+}
+
+/* ============================================================
    80 · APP — metadata, analysis UI, direction picker, playback,
         tap-sync, recording, init
    ============================================================ */
@@ -1340,12 +1474,14 @@ function refreshInfo(){
   $('parseInfo').innerHTML=usingDemo?'가사가 비어 있어서 <b>예시 문구</b>로 재생돼요.':`<b>${SECS.length}개 구간 · ${LINES.length}줄</b> 인식 · 강조 ${em}개 · ${SECS.map(s=>s.label+(s.artist?' ('+esc(s.artist.toUpperCase())+')':'')+' '+(Math.round((s.firstStart-T0)/BAR)+1)+'마디~').join(' / ')}`;
   $('bSyncReset').textContent=synced?`싱크 초기화 (${synced}줄 저장됨)`:'싱크 초기화';
   if($('cAIEmph'))$('cAIEmph').checked=AI_EMPH_ON;
+  renderLines();
 }
 
 /* ---------- playback ---------- */
 const au=$('au');let hasAudio=false,playing=false,clock0=0,clockT=0,actx=null,msDest=null;
-let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0;
-function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0):clockT}
+let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0,RATE=1,AUDIO_FILE=null;
+function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
+function setRate(r){if(r===RATE)return;if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
 function seekTo(s){s=clamp(s,0,SONG_END);if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
 function startPlay(){if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
 function pausePlay(){if(hasAudio)au.pause();else clockT=now();playing=false}
@@ -1356,7 +1492,7 @@ function showSetup(){$('setup').classList.remove('hidden');$('hud').classList.ad
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?'녹화 중지':'설정'}
-function loop(){const t=now();if(!hasAudio&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t);requestAnimationFrame(loop)}
+function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
 
 /* ---------- inputs ---------- */
 let deb=0;
@@ -1365,7 +1501,7 @@ $('lyrics').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{
 $('bDemo').onclick=()=>{$('lyrics').value=DEMO;lyricsText=DEMO;lyricsChanged()};
 $('bClear').onclick=()=>{$('lyrics').value='';lyricsText='';lyricsChanged()};
 $('fLyr').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(s=>{$('lyrics').value=s;lyricsText=s;lyricsChanged()})};
-$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;
+$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · 준비됨`;
   const key='rz_an4_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML='<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 (몇 초 걸려요)';$('bpmRow').classList.add('hidden');
@@ -1373,8 +1509,8 @@ $('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL
   applyAnalysis(an)};
 $('bBpmDbl').onclick=()=>scaleBpm(2);$('bBpmHalf').onclick=()=>scaleBpm(0.5);
 ['inTitle','inArtist','inFeat'].forEach(id=>$(id).addEventListener('input',()=>{saveMeta();refreshInfo()}));
-document.querySelectorAll('#segAspect button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segAspect button').forEach(x=>x.classList.toggle('on',x===b));setAspect(b.dataset.a);lsSet('rz_aspect',b.dataset.a)});
-$('rOff').oninput=e=>{OFF=+e.target.value;$('offVal').textContent=(OFF>0?'+':OFF<0?'−':'±')+Math.abs(OFF).toFixed(2)+'초';lsSet('rz_off',OFF)};
+document.querySelectorAll('#segAspect button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segAspect button').forEach(x=>x.classList.toggle('on',x===b));setAspect(b.dataset.a);lsSet('rz_aspect',b.dataset.a);PLAN_P=null});
+$('rOff').oninput=e=>{OFF=+e.target.value;$('offVal').textContent=(OFF>0?'+':OFF<0?'−':'±')+Math.abs(OFF).toFixed(2)+'초';lsSet('rz_off',OFF);renderLines()};
 $('rInt').oninput=e=>{INTENSITY=+e.target.value;$('intVal').textContent=Math.round(INTENSITY*100)+'%';lsSet('rz_int',INTENSITY);direct()};
 $('bAI').onclick=()=>runAI();$('bAIStop').onclick=()=>{if(aiCtl)aiCtl.abort()};
 $('cAIEmph').onchange=e=>{AI_EMPH_ON=e.target.checked;lsSet('rz_aiemph',AI_EMPH_ON?'1':'0');direct();refreshInfo()};
@@ -1384,39 +1520,95 @@ $('hFull').onclick=e=>{e.stopPropagation();$('hud').classList.add('fade')};
 $('hPlay').onclick=e=>{e.stopPropagation();if(playing)pausePlay();else startPlay();pokeHud()};
 $('seek').oninput=e=>{seekTo(+e.target.value);pokeHud()};
 $('stage').addEventListener('pointerdown',e=>{if(syncMode){e.preventDefault();syncTap();return}if($('setup').classList.contains('hidden'))pokeHud()});
-addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;if(e.code==='Space'||e.code==='Enter'){e.preventDefault();if(syncMode)syncTap();else{playing?pausePlay():startPlay()}}});
+addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;
+  if(syncMode&&(e.code==='Backspace'||e.code==='KeyZ')){e.preventDefault();syncUndo();return}
+  if(e.code==='Space'||e.code==='Enter'){e.preventDefault();if(syncMode)syncTap();else{playing?pausePlay():startPlay()}}});
 
-/* ---------- tap sync ---------- */
-function syncShow(){const L=LINES[syncIdx];$('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${L.sec.label}</div>다음 줄이 시작될 때 탭: <b>${esc(L.text)}</b>`:'완료!'}
-$('bSync').onclick=()=>{overrides={};applyTimes();syncMode=true;syncIdx=0;hideSetup();$('hud').classList.add('hidden');$('syncBar').classList.remove('hidden');syncShow();
-  seekTo(Math.max(0,(LINES[0]?LINES[0].def:barT(SONG.startBar))-3));startPlay()};
-function syncTap(){if(syncIdx>=LINES.length)return;overrides[syncIdx]=now()-0.08-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode)endSync()},600)}
-function endSync(){syncMode=false;saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
+/* ---------- tap sync: start from any line, undo, 0.75× mode ----------
+   Taps overwrite one line at a time, so stopping half-way keeps every earlier tap and every later line's old value. */
+let SLOW=lsGet('rz_slow','0')==='1',syncHist=[],tapWall=0,LSEL=-1;
+function syncShow(){const L=LINES[syncIdx];
+  $('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>다음 줄이 시작될 때 탭: <b>${esc(L.text)}</b>`:'완료!';
+  $('syncUndo').disabled=!syncHist.length}
+function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,LINES.length-1);
+  syncMode=true;syncIdx=from;syncHist=[];tapWall=0;hideSetup();$('hud').classList.add('hidden');$('syncBar').classList.remove('hidden');
+  setRate(SLOW?0.75:1);syncShow();
+  const L=LINES[from],lead=Math.min(L.start-3,from>0?LINES[from-1].start-0.3:Infinity);   // start a little before the previous line so there's context
+  seekTo(Math.max(0,lead+OFF));startPlay()}
+function syncTap(){if(syncIdx>=LINES.length)return;const w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
+  syncHist.push({i:syncIdx,prev:overrides[syncIdx]});overrides[syncIdx]=now()-0.08*RATE-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();
+  if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
+function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;applyTimes();saveOverrides();
+  syncIdx=h.i;syncShow();seekTo(Math.max(0,now()-3));if(!playing)startPlay()}
+function endSync(){syncMode=false;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
+$('bSync').onclick=()=>startSync(0);
+$('syncUndo').onclick=e=>{e.stopPropagation();syncUndo()};
 $('syncStop').onclick=e=>{e.stopPropagation();endSync();pausePlay();showSetup()};
 $('bSyncReset').onclick=()=>{overrides={};lsSet(syncKey(),'{}');applyTimes();refreshInfo()};
+$('cSlow').checked=SLOW;$('cSlow').onchange=e=>{SLOW=e.target.checked;lsSet('rz_slow',SLOW?'1':'0')};
 
-/* ---------- recording ---------- */
+/* ---------- per-line timing editor ---------- */
+const fmtT=t=>{t=Math.max(0,t);return Math.floor(t/60)+':'+(t%60).toFixed(2).padStart(5,'0')};
+function renderLines(){const box=$('lineList');if(!box)return;if(LSEL>=LINES.length)LSEL=-1;
+  let h='',ps=null;
+  LINES.forEach((L,i)=>{if(L.sec!==ps){ps=L.sec;h+=`<li class="lsec">${esc(L.sec.label)}</li>`}
+    const pin=overrides[i]!=null,on=i===LSEL;
+    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${pin?'<span class="pn">고정</span>':''}</button>`+
+      (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05초</button><button class="btn ghost" data-a="+">+0.05초</button><button class="btn ghost" data-a="play">▶ 듣기</button><button class="btn ghost" data-a="tap">여기부터 탭</button>${pin?'<button class="btn ghost" data-a="auto">자동으로</button>':''}</div>`:'')+'</li>'});
+  box.innerHTML=h;$('lineCnt').textContent=LINES.length?`· ${LINES.length}줄`:''}
+$('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||EXPORTING)return;
+  if(b.classList.contains('lt')){const i=+b.dataset.i;LSEL=LSEL===i?-1:i;renderLines();return}
+  const i=LSEL,L=LINES[i],a=b.dataset.a;if(!L)return;
+  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
+  else if(a==='auto'){delete overrides[i];applyTimes();saveOverrides();refreshInfo()}
+  else if(a==='play'){hideSetup();seekTo(Math.max(0,L.start+OFF-1.5));startPlay();pokeHud()}
+  else if(a==='tap')startSync(i)});
+
+/* ---------- saving: fast offline MP4 (75_export) first, realtime recording as the fallback ---------- */
 let DL=null;try{if(window.claude&&window.claude.use)window.claude.use('downloads').then(x=>{DL=x}).catch(()=>{})}catch(e){}
-function pickMime(){if(!window.MediaRecorder)return null;for(const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+let PLAN_P=null,WAKE=null,SAVE_URL=null;
+const getPlan=()=>PLAN_P||(PLAN_P=exportPlan().catch(()=>null));   // cached so the click handler stays inside the user gesture
+async function wake(on){try{if(on&&!WAKE&&navigator.wakeLock){WAKE=await navigator.wakeLock.request('screen');WAKE.addEventListener('release',()=>{WAKE=null})}
+  else if(!on&&WAKE){const w=WAKE;WAKE=null;await w.release()}}catch(e){WAKE=null}}
+function outName(ext){const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
+  return `${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`}
+function offerSave(blob){
+  const out=$('recOut'),type=blob.type||'video/webm',ext=type.includes('mp4')?'mp4':'webm',name=outName(ext);
+  const label=`영상 파일 저장 (${(blob.size/1048576).toFixed(1)}MB · ${ext.toUpperCase()})`;
+  if(DL){out.innerHTML=`<div class="row"><button class="btn primary" id="bSave">${label}</button></div><div class="note" id="saveMsg"></div>`;
+    $('bSave').onclick=()=>{DL.save({filename:name,data:blob}).then(()=>{$('saveMsg').innerHTML='<b>저장했어요.</b> 아이폰이면 공유 시트에서 "비디오 저장"을 누르면 사진 앱에 들어가요.'}).catch(e=>{const c=e&&e.code;$('saveMsg').textContent=c==='declined'?'저장을 취소했어요. 다시 누르면 저장할 수 있어요.':c==='rate_limited'?'잠시 후 다시 눌러 주세요.':'이 화면에서는 저장할 수 없어요. 재생 중 화면 기록으로 저장해 주세요.'})};return}
+  if(SAVE_URL)URL.revokeObjectURL(SAVE_URL);SAVE_URL=URL.createObjectURL(blob);
+  out.innerHTML=`<div class="row"><a class="btn primary" href="${SAVE_URL}" download="${name}">${label}</a><button class="btn ghost" id="bShare">공유 · 사진에 저장</button></div>`;
+  const file=new File([blob],name,{type});$('bShare').onclick=()=>{if(navigator.canShare&&navigator.canShare({files:[file]}))navigator.share({files:[file]}).catch(()=>{});else $('bShare').textContent='이 브라우저는 공유를 지원하지 않아요'}}
 $('bRec').onclick=async()=>{
-  const out=$('recOut');
-  if(!hasAudio){out.innerHTML='<b>녹화하려면 01에서 음원 파일을 먼저 선택해 주세요.</b>';return}
+  if(EXPORTING||recording)return;const out=$('recOut');
+  if(!hasAudio||!AUDIO_FILE){out.innerHTML='<b>영상을 만들려면 01에서 음원 파일을 먼저 선택해 주세요.</b>';return}
+  const plan=await getPlan();if(plan)runExport(plan);else startRec()};
+async function runExport(plan){
+  const out=$('recOut'),setup=$('setup');pausePlay();setRate(1);
+  out.innerHTML=`<div class="prog"><i id="expBar"></i></div><div class="row"><span class="grow" id="expMsg">영상 만드는 중…</span><button class="btn ghost" id="bExpStop">멈추기</button></div>`+
+    `<div class="note">재생하지 않고 프레임을 하나씩 그려서 MP4로 만들어요. 이 화면을 켜 둔 채로 기다려 주세요 — 다른 앱으로 가면 멈춰요.</div>`;
+  $('bExpStop').onclick=()=>{EXP_CANCEL=true};setup.classList.add('busy');wake(true);out.scrollIntoView({block:'nearest'});
+  try{const blob=await fastExport(plan,AUDIO_FILE,(p,eta)=>{const b=$('expBar'),m=$('expMsg');if(!b)return;b.style.width=(p*100).toFixed(1)+'%';
+      m.textContent=`영상 만드는 중… ${Math.floor(p*100)}%`+(eta>1?` · 약 ${eta<60?Math.ceil(eta)+'초':Math.ceil(eta/60)+'분'} 남음`:'')});
+    offerSave(blob)}
+  catch(e){   // cancelled or failed: offer realtime recording (a fresh tap, so playback is allowed on iOS)
+    out.innerHTML=(EXP_CANCEL?'멈췄어요. 다시 누르면 처음부터 만들어요. 이 기기에서 너무 오래 걸리면 재생하면서 녹화할 수도 있어요.':`<b>빠른 저장에 실패했어요.</b> ${esc(String(e&&e.message||e))}`)+
+      '<div class="row"><button class="btn ghost" id="bRecRT">재생하면서 녹화하기</button></div>';$('bRecRT').onclick=()=>startRec()}
+  finally{setup.classList.remove('busy');wake(false)}}
+function pickMime(){if(!window.MediaRecorder)return null;for(const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+async function startRec(){
+  const out=$('recOut');if(EXPORTING||recording)return;
   const mime=pickMime();if(mime===null||!cv.captureStream){out.innerHTML='<b>이 브라우저는 화면 녹화를 지원하지 않아요.</b> 재생 중 화면 기록(제어 센터)으로 저장해 주세요.';return}
-  ensureGraph();if(actx)await actx.resume();
+  setRate(1);ensureGraph();if(actx)await actx.resume();
   const vs=cv.captureStream(30);const tracks=[...vs.getVideoTracks()];if(msDest)tracks.push(...msDest.stream.getAudioTracks());
   try{recorder=new MediaRecorder(new MediaStream(tracks),mime?{mimeType:mime,videoBitsPerSecond:14000000}:{videoBitsPerSecond:14000000})}catch(e){out.innerHTML='<b>녹화를 시작하지 못했어요.</b> '+esc(e.message);return}
   recChunks=[];recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};
-  recorder.onstop=()=>{const type=recorder.mimeType||mime||'video/webm';const blob=new Blob(recChunks,{type});const ext=type.includes('mp4')?'mp4':'webm';
-    const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';const name=`${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`;
-    const label=`영상 파일 저장 (${(blob.size/1048576).toFixed(1)}MB · ${ext.toUpperCase()})`;
-    if(DL){out.innerHTML=`<div class="row"><button class="btn primary" id="bSave">${label}</button></div><div class="note" id="saveMsg"></div>`;
-      $('bSave').onclick=()=>{DL.save({filename:name,data:blob}).then(()=>{$('saveMsg').innerHTML='<b>저장했어요.</b> 아이폰이면 공유 시트에서 "비디오 저장"을 누르면 사진 앱에 들어가요.'}).catch(e=>{const c=e&&e.code;$('saveMsg').textContent=c==='declined'?'저장을 취소했어요. 다시 누르면 저장할 수 있어요.':c==='rate_limited'?'잠시 후 다시 눌러 주세요.':'이 화면에서는 저장할 수 없어요. 재생 중 화면 기록으로 저장해 주세요.'})};return}
-    const url=URL.createObjectURL(blob);out.innerHTML=`<div class="row"><a class="btn primary" href="${url}" download="${name}">${label}</a><button class="btn ghost" id="bShare">공유 · 사진에 저장</button></div>`;
-    const file=new File([blob],name,{type});$('bShare').onclick=()=>{if(navigator.canShare&&navigator.canShare({files:[file]}))navigator.share({files:[file]}).catch(()=>{});else $('bShare').textContent='이 브라우저는 공유를 지원하지 않아요'}};
-  hideSetup();seekTo(0);out.textContent='';await new Promise(r=>setTimeout(r,150));
+  recorder.onstop=()=>{offerSave(new Blob(recChunks,{type:recorder.mimeType||mime||'video/webm'}));recChunks=[]};
+  hideSetup();seekTo(0);out.textContent='';wake(true);await new Promise(r=>setTimeout(r,150));
   recorder.start(1000);recording=true;$('recBadge').classList.remove('hidden');await startPlay();pokeHud();
-};
-function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden')}
+}
+function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden');wake(false)}
 
 /* ---------- init ---------- */
 (function init(){
@@ -1430,6 +1622,7 @@ function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}c
   saveMeta();
   setDirection(DIR_LOCK?lsGet('rz_dir','brutal'):'brutal');
   build();AI_EMPH_ON=lsGet('rz_aiemph',userMarked?'0':'1')==='1';direct();autoPick();loadAI();refreshInfo();refreshAIUI();
+  getPlan().then(p=>{$('expNote').innerHTML=p?'<b>빠른 저장</b> · 재생하지 않고 곡 길이보다 빠르게 MP4로 만들어요.':'이 브라우저는 <b>재생하면서 녹화</b>해요. 곡이 끝날 때까지 화면을 켜 두세요.'});
   loop();
   Object.assign(window,{__frame:t=>frame(t),__setLyrics:s=>{lyricsText=s;build();autoPick();refreshInfo()},__aspect:setAspect,__lines:()=>LINES,
     __song:()=>({...SONG,kicks:KICKS.length,snares:SNARES.length,nov:undefined,preset:!!PRESET,NB}),__setSong:setSong,__build:()=>{build();refreshInfo()},

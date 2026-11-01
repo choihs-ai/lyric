@@ -42,12 +42,14 @@ function refreshInfo(){
   $('parseInfo').innerHTML=usingDemo?'가사가 비어 있어서 <b>예시 문구</b>로 재생돼요.':`<b>${SECS.length}개 구간 · ${LINES.length}줄</b> 인식 · 강조 ${em}개 · ${SECS.map(s=>s.label+(s.artist?' ('+esc(s.artist.toUpperCase())+')':'')+' '+(Math.round((s.firstStart-T0)/BAR)+1)+'마디~').join(' / ')}`;
   $('bSyncReset').textContent=synced?`싱크 초기화 (${synced}줄 저장됨)`:'싱크 초기화';
   if($('cAIEmph'))$('cAIEmph').checked=AI_EMPH_ON;
+  renderLines();
 }
 
 /* ---------- playback ---------- */
 const au=$('au');let hasAudio=false,playing=false,clock0=0,clockT=0,actx=null,msDest=null;
-let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0;
-function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0):clockT}
+let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0,RATE=1,AUDIO_FILE=null;
+function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
+function setRate(r){if(r===RATE)return;if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
 function seekTo(s){s=clamp(s,0,SONG_END);if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
 function startPlay(){if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
 function pausePlay(){if(hasAudio)au.pause();else clockT=now();playing=false}
@@ -58,7 +60,7 @@ function showSetup(){$('setup').classList.remove('hidden');$('hud').classList.ad
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?'녹화 중지':'설정'}
-function loop(){const t=now();if(!hasAudio&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t);requestAnimationFrame(loop)}
+function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
 
 /* ---------- inputs ---------- */
 let deb=0;
@@ -67,7 +69,7 @@ $('lyrics').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{
 $('bDemo').onclick=()=>{$('lyrics').value=DEMO;lyricsText=DEMO;lyricsChanged()};
 $('bClear').onclick=()=>{$('lyrics').value='';lyricsText='';lyricsChanged()};
 $('fLyr').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(s=>{$('lyrics').value=s;lyricsText=s;lyricsChanged()})};
-$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;
+$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · 준비됨`;
   const key='rz_an4_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML='<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 (몇 초 걸려요)';$('bpmRow').classList.add('hidden');
@@ -75,8 +77,8 @@ $('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL
   applyAnalysis(an)};
 $('bBpmDbl').onclick=()=>scaleBpm(2);$('bBpmHalf').onclick=()=>scaleBpm(0.5);
 ['inTitle','inArtist','inFeat'].forEach(id=>$(id).addEventListener('input',()=>{saveMeta();refreshInfo()}));
-document.querySelectorAll('#segAspect button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segAspect button').forEach(x=>x.classList.toggle('on',x===b));setAspect(b.dataset.a);lsSet('rz_aspect',b.dataset.a)});
-$('rOff').oninput=e=>{OFF=+e.target.value;$('offVal').textContent=(OFF>0?'+':OFF<0?'−':'±')+Math.abs(OFF).toFixed(2)+'초';lsSet('rz_off',OFF)};
+document.querySelectorAll('#segAspect button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segAspect button').forEach(x=>x.classList.toggle('on',x===b));setAspect(b.dataset.a);lsSet('rz_aspect',b.dataset.a);PLAN_P=null});
+$('rOff').oninput=e=>{OFF=+e.target.value;$('offVal').textContent=(OFF>0?'+':OFF<0?'−':'±')+Math.abs(OFF).toFixed(2)+'초';lsSet('rz_off',OFF);renderLines()};
 $('rInt').oninput=e=>{INTENSITY=+e.target.value;$('intVal').textContent=Math.round(INTENSITY*100)+'%';lsSet('rz_int',INTENSITY);direct()};
 $('bAI').onclick=()=>runAI();$('bAIStop').onclick=()=>{if(aiCtl)aiCtl.abort()};
 $('cAIEmph').onchange=e=>{AI_EMPH_ON=e.target.checked;lsSet('rz_aiemph',AI_EMPH_ON?'1':'0');direct();refreshInfo()};
@@ -86,39 +88,95 @@ $('hFull').onclick=e=>{e.stopPropagation();$('hud').classList.add('fade')};
 $('hPlay').onclick=e=>{e.stopPropagation();if(playing)pausePlay();else startPlay();pokeHud()};
 $('seek').oninput=e=>{seekTo(+e.target.value);pokeHud()};
 $('stage').addEventListener('pointerdown',e=>{if(syncMode){e.preventDefault();syncTap();return}if($('setup').classList.contains('hidden'))pokeHud()});
-addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;if(e.code==='Space'||e.code==='Enter'){e.preventDefault();if(syncMode)syncTap();else{playing?pausePlay():startPlay()}}});
+addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;
+  if(syncMode&&(e.code==='Backspace'||e.code==='KeyZ')){e.preventDefault();syncUndo();return}
+  if(e.code==='Space'||e.code==='Enter'){e.preventDefault();if(syncMode)syncTap();else{playing?pausePlay():startPlay()}}});
 
-/* ---------- tap sync ---------- */
-function syncShow(){const L=LINES[syncIdx];$('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${L.sec.label}</div>다음 줄이 시작될 때 탭: <b>${esc(L.text)}</b>`:'완료!'}
-$('bSync').onclick=()=>{overrides={};applyTimes();syncMode=true;syncIdx=0;hideSetup();$('hud').classList.add('hidden');$('syncBar').classList.remove('hidden');syncShow();
-  seekTo(Math.max(0,(LINES[0]?LINES[0].def:barT(SONG.startBar))-3));startPlay()};
-function syncTap(){if(syncIdx>=LINES.length)return;overrides[syncIdx]=now()-0.08-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode)endSync()},600)}
-function endSync(){syncMode=false;saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
+/* ---------- tap sync: start from any line, undo, 0.75× mode ----------
+   Taps overwrite one line at a time, so stopping half-way keeps every earlier tap and every later line's old value. */
+let SLOW=lsGet('rz_slow','0')==='1',syncHist=[],tapWall=0,LSEL=-1;
+function syncShow(){const L=LINES[syncIdx];
+  $('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>다음 줄이 시작될 때 탭: <b>${esc(L.text)}</b>`:'완료!';
+  $('syncUndo').disabled=!syncHist.length}
+function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,LINES.length-1);
+  syncMode=true;syncIdx=from;syncHist=[];tapWall=0;hideSetup();$('hud').classList.add('hidden');$('syncBar').classList.remove('hidden');
+  setRate(SLOW?0.75:1);syncShow();
+  const L=LINES[from],lead=Math.min(L.start-3,from>0?LINES[from-1].start-0.3:Infinity);   // start a little before the previous line so there's context
+  seekTo(Math.max(0,lead+OFF));startPlay()}
+function syncTap(){if(syncIdx>=LINES.length)return;const w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
+  syncHist.push({i:syncIdx,prev:overrides[syncIdx]});overrides[syncIdx]=now()-0.08*RATE-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();
+  if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
+function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;applyTimes();saveOverrides();
+  syncIdx=h.i;syncShow();seekTo(Math.max(0,now()-3));if(!playing)startPlay()}
+function endSync(){syncMode=false;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
+$('bSync').onclick=()=>startSync(0);
+$('syncUndo').onclick=e=>{e.stopPropagation();syncUndo()};
 $('syncStop').onclick=e=>{e.stopPropagation();endSync();pausePlay();showSetup()};
 $('bSyncReset').onclick=()=>{overrides={};lsSet(syncKey(),'{}');applyTimes();refreshInfo()};
+$('cSlow').checked=SLOW;$('cSlow').onchange=e=>{SLOW=e.target.checked;lsSet('rz_slow',SLOW?'1':'0')};
 
-/* ---------- recording ---------- */
+/* ---------- per-line timing editor ---------- */
+const fmtT=t=>{t=Math.max(0,t);return Math.floor(t/60)+':'+(t%60).toFixed(2).padStart(5,'0')};
+function renderLines(){const box=$('lineList');if(!box)return;if(LSEL>=LINES.length)LSEL=-1;
+  let h='',ps=null;
+  LINES.forEach((L,i)=>{if(L.sec!==ps){ps=L.sec;h+=`<li class="lsec">${esc(L.sec.label)}</li>`}
+    const pin=overrides[i]!=null,on=i===LSEL;
+    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${pin?'<span class="pn">고정</span>':''}</button>`+
+      (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05초</button><button class="btn ghost" data-a="+">+0.05초</button><button class="btn ghost" data-a="play">▶ 듣기</button><button class="btn ghost" data-a="tap">여기부터 탭</button>${pin?'<button class="btn ghost" data-a="auto">자동으로</button>':''}</div>`:'')+'</li>'});
+  box.innerHTML=h;$('lineCnt').textContent=LINES.length?`· ${LINES.length}줄`:''}
+$('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||EXPORTING)return;
+  if(b.classList.contains('lt')){const i=+b.dataset.i;LSEL=LSEL===i?-1:i;renderLines();return}
+  const i=LSEL,L=LINES[i],a=b.dataset.a;if(!L)return;
+  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
+  else if(a==='auto'){delete overrides[i];applyTimes();saveOverrides();refreshInfo()}
+  else if(a==='play'){hideSetup();seekTo(Math.max(0,L.start+OFF-1.5));startPlay();pokeHud()}
+  else if(a==='tap')startSync(i)});
+
+/* ---------- saving: fast offline MP4 (75_export) first, realtime recording as the fallback ---------- */
 let DL=null;try{if(window.claude&&window.claude.use)window.claude.use('downloads').then(x=>{DL=x}).catch(()=>{})}catch(e){}
-function pickMime(){if(!window.MediaRecorder)return null;for(const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+let PLAN_P=null,WAKE=null,SAVE_URL=null;
+const getPlan=()=>PLAN_P||(PLAN_P=exportPlan().catch(()=>null));   // cached so the click handler stays inside the user gesture
+async function wake(on){try{if(on&&!WAKE&&navigator.wakeLock){WAKE=await navigator.wakeLock.request('screen');WAKE.addEventListener('release',()=>{WAKE=null})}
+  else if(!on&&WAKE){const w=WAKE;WAKE=null;await w.release()}}catch(e){WAKE=null}}
+function outName(ext){const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
+  return `${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`}
+function offerSave(blob){
+  const out=$('recOut'),type=blob.type||'video/webm',ext=type.includes('mp4')?'mp4':'webm',name=outName(ext);
+  const label=`영상 파일 저장 (${(blob.size/1048576).toFixed(1)}MB · ${ext.toUpperCase()})`;
+  if(DL){out.innerHTML=`<div class="row"><button class="btn primary" id="bSave">${label}</button></div><div class="note" id="saveMsg"></div>`;
+    $('bSave').onclick=()=>{DL.save({filename:name,data:blob}).then(()=>{$('saveMsg').innerHTML='<b>저장했어요.</b> 아이폰이면 공유 시트에서 "비디오 저장"을 누르면 사진 앱에 들어가요.'}).catch(e=>{const c=e&&e.code;$('saveMsg').textContent=c==='declined'?'저장을 취소했어요. 다시 누르면 저장할 수 있어요.':c==='rate_limited'?'잠시 후 다시 눌러 주세요.':'이 화면에서는 저장할 수 없어요. 재생 중 화면 기록으로 저장해 주세요.'})};return}
+  if(SAVE_URL)URL.revokeObjectURL(SAVE_URL);SAVE_URL=URL.createObjectURL(blob);
+  out.innerHTML=`<div class="row"><a class="btn primary" href="${SAVE_URL}" download="${name}">${label}</a><button class="btn ghost" id="bShare">공유 · 사진에 저장</button></div>`;
+  const file=new File([blob],name,{type});$('bShare').onclick=()=>{if(navigator.canShare&&navigator.canShare({files:[file]}))navigator.share({files:[file]}).catch(()=>{});else $('bShare').textContent='이 브라우저는 공유를 지원하지 않아요'}}
 $('bRec').onclick=async()=>{
-  const out=$('recOut');
-  if(!hasAudio){out.innerHTML='<b>녹화하려면 01에서 음원 파일을 먼저 선택해 주세요.</b>';return}
+  if(EXPORTING||recording)return;const out=$('recOut');
+  if(!hasAudio||!AUDIO_FILE){out.innerHTML='<b>영상을 만들려면 01에서 음원 파일을 먼저 선택해 주세요.</b>';return}
+  const plan=await getPlan();if(plan)runExport(plan);else startRec()};
+async function runExport(plan){
+  const out=$('recOut'),setup=$('setup');pausePlay();setRate(1);
+  out.innerHTML=`<div class="prog"><i id="expBar"></i></div><div class="row"><span class="grow" id="expMsg">영상 만드는 중…</span><button class="btn ghost" id="bExpStop">멈추기</button></div>`+
+    `<div class="note">재생하지 않고 프레임을 하나씩 그려서 MP4로 만들어요. 이 화면을 켜 둔 채로 기다려 주세요 — 다른 앱으로 가면 멈춰요.</div>`;
+  $('bExpStop').onclick=()=>{EXP_CANCEL=true};setup.classList.add('busy');wake(true);out.scrollIntoView({block:'nearest'});
+  try{const blob=await fastExport(plan,AUDIO_FILE,(p,eta)=>{const b=$('expBar'),m=$('expMsg');if(!b)return;b.style.width=(p*100).toFixed(1)+'%';
+      m.textContent=`영상 만드는 중… ${Math.floor(p*100)}%`+(eta>1?` · 약 ${eta<60?Math.ceil(eta)+'초':Math.ceil(eta/60)+'분'} 남음`:'')});
+    offerSave(blob)}
+  catch(e){   // cancelled or failed: offer realtime recording (a fresh tap, so playback is allowed on iOS)
+    out.innerHTML=(EXP_CANCEL?'멈췄어요. 다시 누르면 처음부터 만들어요. 이 기기에서 너무 오래 걸리면 재생하면서 녹화할 수도 있어요.':`<b>빠른 저장에 실패했어요.</b> ${esc(String(e&&e.message||e))}`)+
+      '<div class="row"><button class="btn ghost" id="bRecRT">재생하면서 녹화하기</button></div>';$('bRecRT').onclick=()=>startRec()}
+  finally{setup.classList.remove('busy');wake(false)}}
+function pickMime(){if(!window.MediaRecorder)return null;for(const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}return ''}
+async function startRec(){
+  const out=$('recOut');if(EXPORTING||recording)return;
   const mime=pickMime();if(mime===null||!cv.captureStream){out.innerHTML='<b>이 브라우저는 화면 녹화를 지원하지 않아요.</b> 재생 중 화면 기록(제어 센터)으로 저장해 주세요.';return}
-  ensureGraph();if(actx)await actx.resume();
+  setRate(1);ensureGraph();if(actx)await actx.resume();
   const vs=cv.captureStream(30);const tracks=[...vs.getVideoTracks()];if(msDest)tracks.push(...msDest.stream.getAudioTracks());
   try{recorder=new MediaRecorder(new MediaStream(tracks),mime?{mimeType:mime,videoBitsPerSecond:14000000}:{videoBitsPerSecond:14000000})}catch(e){out.innerHTML='<b>녹화를 시작하지 못했어요.</b> '+esc(e.message);return}
   recChunks=[];recorder.ondataavailable=e=>{if(e.data&&e.data.size)recChunks.push(e.data)};
-  recorder.onstop=()=>{const type=recorder.mimeType||mime||'video/webm';const blob=new Blob(recChunks,{type});const ext=type.includes('mp4')?'mp4':'webm';
-    const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';const name=`${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`;
-    const label=`영상 파일 저장 (${(blob.size/1048576).toFixed(1)}MB · ${ext.toUpperCase()})`;
-    if(DL){out.innerHTML=`<div class="row"><button class="btn primary" id="bSave">${label}</button></div><div class="note" id="saveMsg"></div>`;
-      $('bSave').onclick=()=>{DL.save({filename:name,data:blob}).then(()=>{$('saveMsg').innerHTML='<b>저장했어요.</b> 아이폰이면 공유 시트에서 "비디오 저장"을 누르면 사진 앱에 들어가요.'}).catch(e=>{const c=e&&e.code;$('saveMsg').textContent=c==='declined'?'저장을 취소했어요. 다시 누르면 저장할 수 있어요.':c==='rate_limited'?'잠시 후 다시 눌러 주세요.':'이 화면에서는 저장할 수 없어요. 재생 중 화면 기록으로 저장해 주세요.'})};return}
-    const url=URL.createObjectURL(blob);out.innerHTML=`<div class="row"><a class="btn primary" href="${url}" download="${name}">${label}</a><button class="btn ghost" id="bShare">공유 · 사진에 저장</button></div>`;
-    const file=new File([blob],name,{type});$('bShare').onclick=()=>{if(navigator.canShare&&navigator.canShare({files:[file]}))navigator.share({files:[file]}).catch(()=>{});else $('bShare').textContent='이 브라우저는 공유를 지원하지 않아요'}};
-  hideSetup();seekTo(0);out.textContent='';await new Promise(r=>setTimeout(r,150));
+  recorder.onstop=()=>{offerSave(new Blob(recChunks,{type:recorder.mimeType||mime||'video/webm'}));recChunks=[]};
+  hideSetup();seekTo(0);out.textContent='';wake(true);await new Promise(r=>setTimeout(r,150));
   recorder.start(1000);recording=true;$('recBadge').classList.remove('hidden');await startPlay();pokeHud();
-};
-function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden')}
+}
+function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden');wake(false)}
 
 /* ---------- init ---------- */
 (function init(){
@@ -132,6 +190,7 @@ function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}c
   saveMeta();
   setDirection(DIR_LOCK?lsGet('rz_dir','brutal'):'brutal');
   build();AI_EMPH_ON=lsGet('rz_aiemph',userMarked?'0':'1')==='1';direct();autoPick();loadAI();refreshInfo();refreshAIUI();
+  getPlan().then(p=>{$('expNote').innerHTML=p?'<b>빠른 저장</b> · 재생하지 않고 곡 길이보다 빠르게 MP4로 만들어요.':'이 브라우저는 <b>재생하면서 녹화</b>해요. 곡이 끝날 때까지 화면을 켜 두세요.'});
   loop();
   Object.assign(window,{__frame:t=>frame(t),__setLyrics:s=>{lyricsText=s;build();autoPick();refreshInfo()},__aspect:setAspect,__lines:()=>LINES,
     __song:()=>({...SONG,kicks:KICKS.length,snares:SNARES.length,nov:undefined,preset:!!PRESET,NB}),__setSong:setSong,__build:()=>{build();refreshInfo()},

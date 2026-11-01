@@ -28,6 +28,7 @@ header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px
 h1{font-family:"Black Han Sans","Apple SD Gothic Neo",sans-serif;font-weight:400;font-size:clamp(34px,10.5vw,92px);line-height:.9;margin:14px 0 8px;letter-spacing:-.01em;overflow-wrap:anywhere}
 .by{font:700 13px "Space Mono",ui-monospace,Menlo,monospace;color:var(--red);letter-spacing:.08em}
 .step{display:grid;grid-template-columns:44px 1fr;gap:4px 12px;padding:22px 0;border-bottom:1px solid var(--line)}
+.step>div{min-width:0}
 .num{font:700 13px "Space Mono",ui-monospace,Menlo,monospace;color:var(--red);padding-top:3px}
 h2{font-size:17px;margin:0 0 12px;font-weight:800;letter-spacing:-.01em}
 .note{font-size:13px;line-height:1.55;color:var(--mute);margin-top:10px}
@@ -72,6 +73,21 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
 .actions .btn{min-height:56px;font-size:15px}
 #recOut{margin-top:14px}
+#setup.busy .step,#setup.busy .actions{pointer-events:none;opacity:.4}
+.prog{height:6px;background:#1d1b19;margin-top:4px}
+.prog i{display:block;height:100%;width:0;background:var(--red);transition:width .2s}
+.grow{flex:1;font-size:14px;color:var(--fg)}
+.lines{list-style:none;margin:0 0 14px;padding:0}
+.lines .lsec{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;color:var(--mute);padding:14px 0 6px}
+.lines .lt{appearance:none;background:transparent;border:0;border-top:1px solid var(--line);color:var(--fg);font:inherit;text-align:left;
+  display:flex;gap:10px;align-items:center;width:100%;min-height:44px;padding:6px 8px;cursor:pointer}
+.lines .lt:focus-visible{outline:1px solid var(--red)}
+.lines .ln.on .lt,.lines .lc{background:#1a1816}
+.lines .tm{font:700 12px "Space Mono",ui-monospace,Menlo,monospace;color:var(--mute);min-width:62px}
+.lines .tx{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lines .pn{font:700 10px "Space Mono",ui-monospace,Menlo,monospace;background:var(--red);color:#fff;padding:2px 6px;letter-spacing:.06em}
+.lines .lc{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 12px}
+.lines .lc .btn{min-height:44px;padding:0 12px;font-size:13px;flex:1 1 auto}
 #recOut .row .btn{flex:1}
 
 /* hud */
@@ -87,6 +103,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo{flex:1;font-size:14px;line-height:1.45}
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
+#syncBar .hbtn:disabled{opacity:.45}
 #recBadge{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:14px;z-index:6;background:var(--red);color:#fff;font:700 12px "Space Mono",ui-monospace,Menlo,monospace;padding:8px 10px;letter-spacing:.1em}
 </style>
 </head>
@@ -97,7 +114,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
   <div class="top"><button class="hbtn" id="hMenu">설정</button><button class="hbtn" id="hFull">가리기</button></div>
   <div class="bot"><button class="hbtn" id="hPlay">❚❚</button><input type="range" id="seek" min="0" max="137.3" step="0.01" value="0"><span id="tc">0:00.0</span></div>
 </div>
-<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncStop">끝내기</button></div>
+<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo">되돌리기</button><button class="hbtn" id="syncStop">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
 
 <div id="setup">
@@ -180,11 +197,17 @@ Outro
     <h2>싱크</h2>
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
     <div class="note">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
-    <div class="row"><button class="btn ghost" id="bSync">탭 싱크 시작</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
-    <div class="note" id="syncNote">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요.</div>
+    <div class="row"><button class="btn ghost" id="bSync">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
+    <label class="chk"><input type="checkbox" id="cSlow"> 탭 싱크할 때 0.75배속으로 재생</label>
+    <div class="note" id="syncNote">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
+    <details class="help" id="lineEd"><summary>줄별 타이밍 다듬기&nbsp;<span id="lineCnt" class="dim"></span></summary>
+      <div class="note" style="margin:0 0 6px">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
+      <ol class="lines" id="lineList"></ol>
+    </details>
   </div></section>
 
-  <div class="actions"><button class="btn primary" id="bPlay">▶ 재생</button><button class="btn rec" id="bRec">● 녹화해서 영상 저장</button></div>
+  <div class="actions"><button class="btn primary" id="bPlay">▶ 재생</button><button class="btn rec" id="bRec">● 영상으로 저장</button></div>
+  <div class="note" id="expNote"></div>
   <div id="recOut" class="note"></div>
  </div>
 </div>

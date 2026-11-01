@@ -18,7 +18,8 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
   - `40_text` canvases, font roles (d/s/m/l/h), `A()` alpha convention, layout engine
   - `50_modes` 19 kinetic line treatments + motion-blur ghosts · `55_backgrounds` environments
   - `60_render` frame orchestration, titles, transitions, HUD · `70_post` WebGL finishing pass (2D fallback)
-  - `80_app` UI, playback, tap-sync, recording, init
+  - `75_export` offline MP4 export: renders `frame(t)` per frame, WebCodecs H.264 + AAC (Opus fallback), in-page MP4 muxer
+  - `80_app` UI, playback, tap-sync (from any line, undo, 0.75×), per-line timing editor, save (fast export → realtime MediaRecorder fallback), init
 - `src/template.html` — markup + CSS; `/*BUNDLE*/` and `/*FONT_CSS*/` placeholders.
 - `src/data/preset_*.txt` — drum onsets for the one hand-checked preset track.
 - `index.html` — **built output, committed** (GitHub Pages serves it from the repo root).
@@ -26,10 +27,12 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
 ## Workflow
 1. Edit `src/…` (never edit `index.html` by hand).
 2. `python3 build.py`
-3. `node tools/smoke.js` — must print `no errors`; look at a few frames in `.shots/`.
+3. `node tools/smoke.js` — must print `no errors`; look at a few frames in `.shots/`. It also checks the line editor and,
+   when the browser has WebCodecs, runs a real export to `.shots/export.mp4` (verified with ffprobe/ffmpeg if installed).
 4. Commit `src/` and `index.html` together.
 
 ## Conventions
+- `frame(t)` must stay a pure function of `t` (no wall-clock state) — the offline exporter renders frames out of realtime.
 - Modes never set `ctx.globalAlpha` directly; use `A(x)` so ghost/echo passes can scale alpha via `GA`.
 - Every size is relative to `U` (1080-short-side units) so 16:9 and 9:16 both work.
 - Touch-first UI: ≥44px targets, 16px inputs, `100dvh`/safe-area aware. Wrap storage in try/catch.
