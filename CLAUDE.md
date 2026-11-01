@@ -1,0 +1,35 @@
+# lyric — Kinetic Lyric Motion Engine
+
+Fan-made kinetic-typography lyric video engine that runs in the browser (iPhone Safari first).
+The user loads a song file and pastes lyrics they own a copy of; the page analyses the audio,
+picks an art direction, renders the motion on a canvas, and records it to MP4/WebM.
+
+## Hard rule
+- **Never put song lyrics into this repo** (code, demo text, tests, commit messages). The engine only
+  renders text the viewer pastes at runtime; lyrics are stored in the viewer's localStorage only.
+  Demo/test text must be original placeholder sentences.
+
+## Layout
+- `src/js/NN_*.js` — modules, concatenated in filename order into one `<script>`:
+  - `00_util` math/easing/color/storage · `10_song` song model, presets, in-browser audio analysis + mood features
+  - `20_lyrics` parser (`*emph*`, `**max**`, `(adlib)`, section headers), section slots, line/word timing
+  - `30_directions` six art directions (fonts, palettes per section role, backgrounds, mode pools, motion, post-FX)
+  - `35_director` mood → direction, per-line mode assignment, emphasis, AI director (`sample` capability)
+  - `40_text` canvases, font roles (d/s/m/l/h), `A()` alpha convention, layout engine
+  - `50_modes` 19 kinetic line treatments + motion-blur ghosts · `55_backgrounds` environments
+  - `60_render` frame orchestration, titles, transitions, HUD · `70_post` WebGL finishing pass (2D fallback)
+  - `80_app` UI, playback, tap-sync, recording, init
+- `src/template.html` — markup + CSS; `/*BUNDLE*/` and `/*FONT_CSS*/` placeholders.
+- `src/data/preset_*.txt` — drum onsets for the one hand-checked preset track.
+- `index.html` — **built output, committed** (GitHub Pages serves it from the repo root).
+
+## Workflow
+1. Edit `src/…` (never edit `index.html` by hand).
+2. `python3 build.py`
+3. `node tools/smoke.js` — must print `no errors`; look at a few frames in `.shots/`.
+4. Commit `src/` and `index.html` together.
+
+## Conventions
+- Modes never set `ctx.globalAlpha` directly; use `A(x)` so ghost/echo passes can scale alpha via `GA`.
+- Every size is relative to `U` (1080-short-side units) so 16:9 and 9:16 both work.
+- Touch-first UI: ≥44px targets, 16px inputs, `100dvh`/safe-area aware. Wrap storage in try/catch.
