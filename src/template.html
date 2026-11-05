@@ -24,6 +24,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:
   padding:calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 40px)}
 .inner{max-width:720px;margin:0 auto}
 header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:8px}
+.toprow{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.lang{flex:0 0 auto;white-space:nowrap;min-height:44px;min-width:56px;padding:0 12px;background:transparent;border:1px solid #3a3632;color:var(--fg);font:700 12px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.08em}
 .kicker{font:700 11px/1.4 "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.14em;color:var(--mute)}
 h1{font-family:"Black Han Sans","Apple SD Gothic Neo",sans-serif;font-weight:400;font-size:clamp(34px,10.5vw,92px);line-height:.9;margin:14px 0 8px;letter-spacing:-.01em;overflow-wrap:anywhere}
 .by{font:700 13px "Space Mono",ui-monospace,Menlo,monospace;color:var(--red);letter-spacing:.08em}
@@ -57,6 +59,9 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .fields label{display:grid;gap:6px;font-size:12px;color:var(--mute);font-weight:700}
 .fields input{width:100%;min-height:46px;background:#0f0e0d;color:var(--fg);border:1px solid #3a3632;border-radius:0;padding:0 12px;font:16px -apple-system,"Apple SD Gothic Neo",sans-serif}
 .fields input:focus{outline:1px solid var(--red)}
+.fields .tight{margin:0;flex-wrap:nowrap}.fields .tight input{flex:1;min-width:0}.fields .tight span{color:var(--mute)}.fields .tight .btn{flex:0 0 auto}
+.proj{padding:14px 0 6px;border-bottom:1px solid var(--line)}
+#projSel{flex:1;min-width:0;min-height:48px;background:#0f0e0d;color:var(--fg);border:1px solid #3a3632;border-radius:0;padding:0 12px;font:16px -apple-system,"Apple SD Gothic Neo",sans-serif}
 .dirs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
 .dir{appearance:none;text-align:left;background:#0f0e0d;border:1px solid #2f2b27;color:var(--fg);padding:10px 10px 12px;min-height:112px;display:flex;flex-direction:column;gap:6px;cursor:pointer;position:relative;font:inherit}
 .dir.on{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
@@ -114,37 +119,54 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 <div id="stage"><canvas id="cv" width="1920" height="1080"></canvas></div>
 
 <div id="hud" class="hidden fade">
-  <div class="top"><button class="hbtn" id="hMenu">설정</button><button class="hbtn" id="hFull">가리기</button></div>
+  <div class="top"><button class="hbtn" id="hMenu">설정</button><button class="hbtn" id="hFull" data-en="Hide">가리기</button></div>
   <div class="bot"><button class="hbtn" id="hPlay">❚❚</button><input type="range" id="seek" min="0" max="137.3" step="0.01" value="0"><span id="tc">0:00.0</span></div>
 </div>
-<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo">되돌리기</button><button class="hbtn" id="syncStop">끝내기</button></div>
+<div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo" data-en="Undo">되돌리기</button><button class="hbtn" id="syncStop" data-en="Done">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
-<div id="endBar" class="hidden"><button class="btn primary" id="endReplay">↺ 다시 보기</button><button class="btn rec" id="endSave">● 영상으로 저장</button><button class="btn ghost" id="endSetup">설정</button></div>
+<div id="endBar" class="hidden"><button class="btn primary" id="endReplay" data-en="↺ Replay">↺ 다시 보기</button><button class="btn rec" id="endSave" data-en="● Save video">● 영상으로 저장</button><button class="btn ghost" id="endSetup" data-en="Settings">설정</button></div>
 
 <div id="setup">
  <div class="inner">
   <header>
-   <div class="kicker">FAN-MADE · KINETIC LYRIC MOTION ENGINE</div>
+   <div class="kicker toprow"><span>FAN-MADE · KINETIC LYRIC MOTION ENGINE</span><button class="lang" id="bLang" type="button">EN</button></div>
    <h1 id="hTitle">LYRIC MOTION</h1>
-   <div class="by" id="hBy">음원과 가사만 넣으면 되는 가사 타이포그래피 엔진</div>
+   <div class="by" id="hBy" data-en="Add a song and its lyrics — get a kinetic typography video">음원과 가사만 넣으면 되는 가사 타이포그래피 엔진</div>
   </header>
+  <div class="proj">
+    <div class="row" style="margin-top:0;flex-wrap:nowrap"><select id="projSel" aria-label="프로젝트" data-en-al="Project"></select><button class="btn ghost" id="bProjNew" type="button" data-en="+ New song">+ 새 곡</button></div>
+    <details class="help"><summary><span data-en="Manage projects">프로젝트 관리</span>&nbsp;<span id="projCount" class="dim"></span></summary>
+      <div class="note" style="margin:0 0 6px" data-en="Each song keeps its own lyrics, sync and design, and its audio is saved on this device too. Export a file to open it on another device (audio not included).">곡마다 가사 · 싱크 · 디자인이 따로 저장되고, 음원도 이 기기에 같이 저장돼요. 파일로 내보내면 다른 기기에서 불러올 수 있어요 (음원은 빠져요).</div>
+      <div class="row" style="margin-bottom:14px"><button class="btn ghost" id="bProjExp" type="button" data-en="Export file">파일로 내보내기</button><label class="btn ghost"><span data-en="Import file">파일 불러오기</span><input type="file" id="fProj" accept=".json,application/json"></label><button class="btn ghost" id="bProjDel" type="button" data-en="Delete project">이 프로젝트 삭제</button></div>
+      <div class="note" id="projMsg" style="margin-bottom:12px"></div>
+    </details>
+  </div>
 
   <section class="step"><div class="num">01</div><div>
-    <h2>음원 · 곡 정보</h2>
-    <label class="btn">음원 파일 선택<input type="file" id="fAudio" accept="audio/*,.mp3,.m4a,.wav"></label>
-    <div class="note" id="audioName">아직 선택하지 않았어요 · 없으면 무음 미리보기로 재생돼요</div>
-    <div class="note" id="anInfo">음원을 고르면 박자(BPM)·킥·스네어·구간 경계를 이 기기에서 바로 분석해요.</div>
+    <h2 data-en="Audio · song info">음원 · 곡 정보</h2>
+    <label class="btn"><span data-en="Choose audio file">음원 파일 선택</span><input type="file" id="fAudio" accept="audio/*,.mp3,.m4a,.wav"></label>
+    <div class="note" id="audioName" data-en="Nothing chosen yet · previews play silently without one">아직 선택하지 않았어요 · 없으면 무음 미리보기로 재생돼요</div>
+    <div class="note" id="anInfo" data-en="Once you choose audio, tempo (BPM), kicks, snares, sections and vocals are analysed right here on this device.">음원을 고르면 박자(BPM)·킥·스네어·구간 경계를 이 기기에서 바로 분석해요.</div>
+    <details class="help" id="noAud"><summary data-en="No audio file?">음원 파일 없이 만들기</summary>
+      <div class="note" style="margin:0 0 4px" data-en="Works for songs you only stream. Enter the length and tempo to make a &lt;b&gt;silent video&lt;/b&gt;, then add the same song in the Reels/TikTok/Shorts editor.">스트리밍으로만 듣는 곡도 만들 수 있어요. 곡 길이와 빠르기를 넣으면 <b>소리 없는 영상</b>을 만들어요. 노래는 릴스·틱톡·쇼츠 편집 화면에서 같은 곡을 넣으면 돼요.</div>
+      <div class="fields" style="margin-top:8px">
+        <label><span data-en="Song length">곡 길이</span><span class="row tight"><input id="inMin" type="number" inputmode="numeric" min="0" max="20" placeholder="분" data-en-ph="min"><span>:</span><input id="inSec" type="number" inputmode="numeric" min="0" max="59" placeholder="초" data-en-ph="sec"></span></label>
+        <label><span data-en="Tempo (BPM)">빠르기 (BPM)</span><span class="row tight"><input id="inBpm" type="number" inputmode="decimal" min="60" max="200" placeholder="모르면 비워 두기 (120)" data-en-ph="leave blank if unsure (120)"><button class="btn ghost" id="bTapBpm" type="button" data-en="Tap the beat">박자에 맞춰 탭</button></span></label>
+      </div>
+      <div class="row" style="margin-bottom:14px"><button class="btn" id="bManual" type="button" data-en="Use this length">이 길이로 만들기</button></div>
+      <div class="note" id="manualMsg" style="margin-bottom:14px"></div>
+    </details>
     <div class="row hidden" id="bpmRow"><button class="btn ghost" id="bBpmHalf">BPM ÷2</button><button class="btn ghost" id="bBpmDbl">BPM ×2</button></div>
     <div class="fields">
-      <label>곡 제목<input id="inTitle" maxlength="40" placeholder="비워 두면 음원 파일 이름을 써요" autocomplete="off"></label>
-      <label>아티스트<input id="inArtist" maxlength="40" placeholder="비워 두면 영상에 표시하지 않아요" autocomplete="off"></label>
-      <label>피처링 (선택)<input id="inFeat" maxlength="40" placeholder="없으면 비워 두기" autocomplete="off"></label>
+      <label><span data-en="Title">곡 제목</span><input id="inTitle" maxlength="40" placeholder="비워 두면 음원 파일 이름을 써요" data-en-ph="leave blank to use the file name" autocomplete="off"></label>
+      <label><span data-en="Artist">아티스트</span><input id="inArtist" maxlength="40" placeholder="비워 두면 영상에 표시하지 않아요" data-en-ph="leave blank to hide it" autocomplete="off"></label>
+      <label><span data-en="Featuring (optional)">피처링 (선택)</span><input id="inFeat" maxlength="40" placeholder="없으면 비워 두기" data-en-ph="leave blank if none" autocomplete="off"></label>
     </div>
   </div></section>
 
   <section class="step"><div class="num">02</div><div>
-    <h2>가사</h2>
-    <textarea id="lyrics" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Intro
+    <h2 data-en="Lyrics">가사</h2>
+    <textarea id="lyrics" data-en-ph="Intro&#10;first line&#10;second line&#10;&#10;Verse 1&#10;one line per line&#10;*a word* to emphasise: one asterisk&#10;**maximum emphasis**: two&#10;ad-libs in brackets (Yeah)&#10;&#10;Chorus&#10;...&#10;&#10;Verse 2 - featured name&#10;...&#10;&#10;Outro&#10;..." spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Intro
 첫 줄
 둘째 줄
 
@@ -163,54 +185,56 @@ Verse 2 - 피처링 이름
 Outro
 ..."></textarea>
     <div class="row">
-      <button class="btn ghost" id="bDemo">예시 문구 넣기</button>
-      <label class="btn ghost">텍스트 파일 불러오기<input type="file" id="fLyr" accept=".txt,text/plain"></label>
-      <button class="btn ghost" id="bClear">지우기</button>
+      <button class="btn ghost" id="bDemo" data-en="Insert sample text">예시 문구 넣기</button>
+      <label class="btn ghost"><span data-en="Load text file">텍스트 파일 불러오기</span><input type="file" id="fLyr" accept=".txt,text/plain"></label>
+      <button class="btn ghost" id="bClear" data-en="Clear">지우기</button>
     </div>
     <div class="note" id="parseInfo"></div>
-    <details class="help"><summary>입력 규칙</summary><ul>
-      <li>구간 제목만 한 줄로: <code>Intro</code> <code>Verse 1</code> <code>Chorus</code> <code>Verse 2 - 이름</code> <code>Outro</code> (인트로·벌스·후렴·아웃트로도 인식)</li>
-      <li>구간 개수는 자유예요. 줄 수·글자 수와 곡의 에너지 변화를 함께 보고 구간 경계를 마디에 맞춰 배치해요.</li>
-      <li><code>*단어*</code> 강조 → 색이 바뀌고 뒤에 거대한 윤곽 글자가 터져요. 여러 단어도 한 번에 감쌀 수 있어요. 별표를 하나도 안 쓰면 강조 단어를 자동(또는 AI)으로 골라요.</li>
-      <li><code>**단어**</code> 최대 강조 → 화면 반전, 글리치, 강한 흔들림</li>
-      <li><code>(Yeah)</code> 괄호 → 본문과 분리된 작은 추임새 태그</li>
-      <li>같은 구간에서 반복되는 줄은 반복될수록 잔상이 겹겹이 쌓여요.</li>
-      <li>입력한 가사는 이 기기 안에만 저장돼요.</li>
+    <details class="help"><summary data-en="Formatting">입력 규칙</summary><ul>
+      <li data-en="Section titles on their own line: &lt;code&gt;Intro&lt;/code&gt; &lt;code&gt;Verse 1&lt;/code&gt; &lt;code&gt;Pre-Chorus&lt;/code&gt; &lt;code&gt;Chorus&lt;/code&gt; &lt;code&gt;Hook&lt;/code&gt; &lt;code&gt;Bridge&lt;/code&gt; &lt;code&gt;Verse 2 - name&lt;/code&gt; &lt;code&gt;Outro&lt;/code&gt; ([Chorus] and Chorus: work too)">구간 제목만 한 줄로: <code>Intro</code> <code>Verse 1</code> <code>Pre-Chorus</code> <code>Chorus</code> <code>Hook</code> <code>Bridge</code> <code>Verse 2 - 이름</code> <code>Outro</code> (<code>[Chorus]</code>, <code>Chorus:</code>, 인트로·벌스·후렴·아웃트로도 인식)</li>
+      <li data-en="Any number of sections. Boundaries are placed on bars using line counts, text length and the song's energy changes.">구간 개수는 자유예요. 줄 수·글자 수와 곡의 에너지 변화를 함께 보고 구간 경계를 마디에 맞춰 배치해요.</li>
+      <li data-en="&lt;code&gt;*word*&lt;/code&gt; emphasis → changes colour and a giant outline bursts behind it. Wrap several words at once if you like. With no asterisks at all, emphasis is picked automatically (or by AI)."><code>*단어*</code> 강조 → 색이 바뀌고 뒤에 거대한 윤곽 글자가 터져요. 여러 단어도 한 번에 감쌀 수 있어요. 별표를 하나도 안 쓰면 강조 단어를 자동(또는 AI)으로 골라요.</li>
+      <li data-en="&lt;code&gt;**word**&lt;/code&gt; maximum emphasis → inverted frame, glitch, hard shake"><code>**단어**</code> 최대 강조 → 화면 반전, 글리치, 강한 흔들림</li>
+      <li data-en="&lt;code&gt;(Yeah)&lt;/code&gt; brackets → a small ad-lib tag apart from the line"><code>(Yeah)</code> 괄호 → 본문과 분리된 작은 추임새 태그</li>
+      <li data-en="Lines repeated within a section pile up echoes each time.">같은 구간에서 반복되는 줄은 반복될수록 잔상이 겹겹이 쌓여요.</li>
+      <li data-en="Your lyrics are stored only on this device.">입력한 가사는 이 기기 안에만 저장돼요.</li>
     </ul></details>
   </div></section>
 
   <section class="step"><div class="num">03</div><div>
-    <h2>아트 디렉션</h2>
+    <h2 data-en="Art direction">아트 디렉션</h2>
     <div class="note" id="dirWhy"></div>
     <div class="dirs" id="dirCards"></div>
-    <div class="row"><span class="lbl">연출 강도</span><input type="range" id="rInt" min="0.5" max="1.5" step="0.05" value="1"><span class="val" id="intVal">100%</span></div>
-    <div class="note">곡 분석(에너지 · 밝기 · 저음 · 다이내믹 · 리듬 밀도)과 가사 성향으로 디렉션을 추천해요. 카드를 누르면 직접 바꿀 수 있어요.</div>
+    <div class="row"><span class="lbl" data-en="Intensity">연출 강도</span><input type="range" id="rInt" min="0.5" max="1.5" step="0.05" value="1"><span class="val" id="intVal">100%</span></div>
+    <div class="note" data-en="A direction is suggested from the audio (energy · brightness · low end · dynamics · rhythm density) and the lyrics. Tap a card to choose your own.">곡 분석(에너지 · 밝기 · 저음 · 다이내믹 · 리듬 밀도)과 가사 성향으로 디렉션을 추천해요. 카드를 누르면 직접 바꿀 수 있어요.</div>
     <div id="aiBox" class="ai hidden">
-      <div class="row"><button class="btn" id="bAI">✦ AI 디렉터로 분석</button><button class="btn ghost hidden" id="bAIStop">멈추기</button></div>
-      <label class="chk"><input type="checkbox" id="cAIEmph"> AI가 고른 강조 단어 쓰기 (내가 * 표시한 줄은 그대로)</label>
-      <div class="note" id="aiStatus">Claude가 곡 분위기, 구간별 감정·강도, 줄마다 강조할 단어를 판단해서 연출에 반영해요. 처음 한 번 사용 허용을 물어봐요.</div>
+      <div class="row"><button class="btn" id="bAI" data-en="✦ Ask the AI director">✦ AI 디렉터로 분석</button><button class="btn ghost hidden" id="bAIStop" data-en="Stop">멈추기</button></div>
+      <label class="chk"><input type="checkbox" id="cAIEmph"> <span data-en="Use the AI's emphasis picks (lines you marked with * stay as they are)">AI가 고른 강조 단어 쓰기 (내가 * 표시한 줄은 그대로)</span></label>
+      <div class="note" id="aiStatus" data-en="Claude judges the song's mood, each section's feeling and intensity, and the words to stress in each line. It asks for permission the first time.">Claude가 곡 분위기, 구간별 감정·강도, 줄마다 강조할 단어를 판단해서 연출에 반영해요. 처음 한 번 사용 허용을 물어봐요.</div>
     </div>
   </div></section>
 
   <section class="step"><div class="num">04</div><div>
-    <h2>화면 비율</h2>
-    <div class="seg" id="segAspect"><button data-a="16:9" class="on">16:9 가로 · 유튜브</button><button data-a="9:16">9:16 세로 · 쇼츠·릴스</button></div>
+    <h2 data-en="Aspect ratio">화면 비율</h2>
+    <div class="seg" id="segAspect"><button data-a="16:9" class="on" data-en="16:9 landscape · YouTube">16:9 가로 · 유튜브</button><button data-a="9:16" data-en="9:16 portrait · Shorts/Reels">9:16 세로 · 쇼츠·릴스</button></div>
   </div></section>
 
   <section class="step"><div class="num">05</div><div>
-    <h2>싱크</h2>
+    <h2 data-en="Sync">싱크</h2>
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
-    <div class="note">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
-    <div class="row"><button class="btn ghost" id="bSync">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
-    <label class="chk"><input type="checkbox" id="cSlow"> 탭 싱크할 때 0.75배속으로 재생</label>
-    <div class="note" id="syncNote">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
-    <details class="help" id="lineEd"><summary>줄별 타이밍 다듬기&nbsp;<span id="lineCnt" class="dim"></span></summary>
-      <div class="note" style="margin:0 0 6px">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
+    <div class="note" data-en="Shifts all lyrics slightly. &lt;b&gt;+&lt;/b&gt; is later, &lt;b&gt;−&lt;/b&gt; is earlier.">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
+    <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button></div>
+    <div class="note" id="autoMsg" data-en="Finds where the vocals start and lines each lyric up with it. More accurate with stereo audio; fine-tune the result below.">음원에서 보컬이 시작되는 지점을 찾아 줄마다 맞춰요. 스테레오 음원에서 더 정확하고, 결과는 아래에서 다듬을 수 있어요.</div>
+    <div class="row"><button class="btn ghost" id="bSync" data-en="Tap sync from start">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
+    <label class="chk"><input type="checkbox" id="cSlow"> <span data-en="Play at 0.75× while tap syncing">탭 싱크할 때 0.75배속으로 재생</span></label>
+    <div class="note" id="syncNote" data-en="Default timing comes from the analysis (beat · bars · sections). For exact lines use tap sync: while it plays, &lt;b&gt;tap the screen the moment each line starts&lt;/b&gt;. Untapped lines follow the taps around them. Mis-tapped? Press &lt;b&gt;Undo&lt;/b&gt; (rewinds 3 s). Stopping half-way keeps the lines tapped so far.">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
+    <details class="help" id="lineEd"><summary><span data-en="Fine-tune line timing">줄별 타이밍 다듬기</span>&nbsp;<span id="lineCnt" class="dim"></span></summary>
+      <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, or re-tap from there. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
       <ol class="lines" id="lineList"></ol>
     </details>
   </div></section>
 
-  <div class="actions"><button class="btn primary" id="bPlay">▶ 재생</button><button class="btn rec" id="bRec">● 영상으로 저장</button></div>
+  <div class="actions"><button class="btn primary" id="bPlay" data-en="▶ Play">▶ 재생</button><button class="btn rec" id="bRec" data-en="● Save video">● 영상으로 저장</button></div>
   <div class="note" id="expNote"></div>
   <div id="recOut" class="note"></div>
  </div>

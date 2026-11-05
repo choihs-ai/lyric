@@ -11,7 +11,7 @@ function wav(sec,sr=44100){const n=sec*sr,b=Buffer.alloc(44+n*4);b.write('RIFF',
   for(let i=0;i<n;i++){const t=i/sr,bt=t%0.5,v=Math.exp(-bt*30)*Math.sin(2*Math.PI*60*bt)*0.8+0.1*Math.sin(2*Math.PI*440*t),s=Math.max(-1,Math.min(1,v))*32767|0;b.writeInt16LE(s,44+i*4);b.writeInt16LE(s,46+i*4)}
   return b}
 (async()=>{const out=process.argv[2]||path.join(__dirname,'../.shots');fs.mkdirSync(out,{recursive:true});
-const b=await chromium.launch({args:['--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader']});const p=await b.newPage({viewport:{width:1280,height:800},acceptDownloads:true});
+const b=await chromium.launch({args:['--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader']});const p=await b.newPage({viewport:{width:1280,height:800},acceptDownloads:true,locale:'ko-KR'});
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
 await p.goto('file://'+path.resolve(__dirname,'../index.html'));await p.waitForTimeout(800);await p.click('#bDemo');
 console.log('post fx',JSON.stringify(await p.evaluate(()=>__post())));
@@ -37,6 +37,24 @@ if(has('ffmpeg')&&has('ffprobe')){
   fs.writeFileSync(mp,Buffer.from(b64,'base64'));const e=ffcheck(mp),st=probe(mp);
   if(e||!st.length||st[0].codec_name!=='aac'||Math.abs(+st[0].duration-4)>0.1)errs.push('aac mux: '+(e||JSON.stringify(st)));else console.log('aac mux ok',JSON.stringify(st[0]));
 }else console.log('ffmpeg/ffprobe not found — skipped AAC mux check');
+
+/* auto-sync: a stereo synthetic song (wide hats/pad, centred kick/snare, centred voice-like phrases at known times, one
+   3.5 s instrumental gap); at least 8 of 10 line starts must land within 0.15 s */
+{const sr=44100,dur=40,n=sr*dur,b=Buffer.alloc(44+n*4),syls=[8,6,9,7,8,10,6,7,9,8],gaps=[0.5,0.35,0.7,3.5,0.4,0.25,0.6,0.5,0.3,0.5],truth=[];
+  b.write('RIFF',0);b.writeUInt32LE(36+n*4,4);b.write('WAVEfmt ',8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(2,22);b.writeUInt32LE(sr,24);b.writeUInt32LE(sr*4,28);b.writeUInt16LE(4,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(n*4,40);
+  const L=new Float32Array(n),R=new Float32Array(n);let rs=1;const rn=()=>{rs^=rs<<13;rs^=rs>>>17;rs^=rs<<5;return ((rs>>>0)%10000)/10000-0.5};
+  for(let i=0;i<n;i++){const t=i/sr,bt=t%0.5,bt2=(t+0.5)%1,k=Math.exp(-bt*25)*Math.sin(2*Math.PI*55*bt)*0.7,sn=(bt2<0.12&&Math.floor(t/0.5)%2===1)?rn()*Math.exp(-bt2*30)*0.5:0,
+    h=(t%0.25)<0.03?rn()*0.25:0,side=Math.floor(t/0.25)%2;L[i]=k+sn+h*(side?1:0.1)+0.08*Math.sin(2*Math.PI*330*t);R[i]=k+sn+h*(side?0.1:1)+0.08*Math.sin(2*Math.PI*415*t+1)}
+  let t0=4;syls.forEach((s,k)=>{const d=s/4.5;truth.push(t0);const f0=200+40*(k%3);for(let i=Math.floor(t0*sr);i<Math.floor((t0+d)*sr);i++){const t=i/sr-t0,am=0.85+0.15*Math.sin(2*Math.PI*4.5*t-Math.PI/2),env=Math.min(1,t/0.03,(d-t)/0.05);
+    let v=0;for(let hh=1;hh<=10;hh++)v+=Math.sin(2*Math.PI*f0*hh*(i/sr)+hh)/hh;v*=0.18*am*env;L[i]+=v;R[i]+=v}t0+=d+gaps[k]});
+  for(let i=0;i<n;i++){b.writeInt16LE(Math.max(-32767,Math.min(32767,L[i]*20000|0)),44+i*4);b.writeInt16LE(Math.max(-32767,Math.min(32767,R[i]*20000|0)),46+i*4)}
+  const wp=path.join(out,'vocal_test.wav');fs.writeFileSync(wp,b);
+  await p.evaluate(()=>document.getElementById('setup').classList.remove('hidden'));
+  await p.fill('#lyrics','Verse 1\n'+syls.slice(0,4).map(s=>'a'.repeat(s)).join('\n')+'\n\nChorus\n'+syls.slice(4).map(s=>'b'.repeat(s)).join('\n'));await p.waitForTimeout(400);
+  await p.setInputFiles('#fAudio',wp);await p.waitForFunction(()=>/분석 완료|Analysed|못했|Couldn/.test(document.getElementById('anInfo').textContent),null,{timeout:60000});
+  await p.click('#bAuto');const got=await p.evaluate(()=>__lines().map(l=>l.start+OFF));
+  const ok=got.filter((t,i)=>Math.abs(t-truth[i])<=0.15).length;if(ok<8)errs.push(`auto-sync: ${ok}/10 within 0.15s — ${got.map(x=>x.toFixed(2))} vs ${truth.map(x=>x.toFixed(2))}`);else console.log(`auto-sync ok (${ok}/10 within 0.15s)`);
+  await p.click('#bDemo')}
 
 /* full offline export on a generated 8s click track */
 const plan=await p.evaluate(async()=>{const x=await exportPlan();return x&&{video:x.v.codec,audio:x.a.kind}});

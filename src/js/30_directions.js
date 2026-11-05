@@ -11,7 +11,7 @@ const F=(f,w,stack,fb)=>({f,w,stack,fb:fb||w});
 
 const DIRECTIONS={
  brutal:{
-  name:'BRUTAL',ko:'브루탈',desc:'트랩·드릴·공격적인 랩 — 검정·핏빛, 하드컷, 글리치',
+  name:'BRUTAL',ko:'브루탈',desc:'트랩·드릴·공격적인 랩 — 검정·핏빛, 하드컷, 글리치',descEn:'Trap, drill, aggressive rap — black and blood red, hard cuts, glitch',
   fonts:{d:F('Black Han Sans',400,'sans',900),s:F('Noto Serif KR',900,'serif'),m:F('Space Mono',700,'mono'),l:F('Noto Sans KR',300,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#0a0908',fg:'#efe9df',ac:'#ff2a1a',sub:'#4a1d19'}),bg:'brutalIntro',pool:['slam','echo']},
@@ -26,7 +26,7 @@ const DIRECTIONS={
   trans:'slit',title:'slam'},
 
  neon:{
-  name:'NEON',ko:'네온',desc:'밤·R&B·신스 — 마젠타·시안 발광, 부드러운 슬라이드',
+  name:'NEON',ko:'네온',desc:'밤·R&B·신스 — 마젠타·시안 발광, 부드러운 슬라이드',descEn:'Night drives, R&B, synths — magenta/cyan glow, smooth slides',
   fonts:{d:F('Noto Sans KR',900,'sans'),s:F('Noto Serif KR',900,'serif'),m:F('Space Mono',400,'mono'),l:F('Noto Sans KR',200,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#06050d',fg:'#f2efff',ac:'#ff2fd2',ac2:'#2ef2ff',sub:'#2a2350'}),bg:'neonHaze',pool:['maskRise','track','slam']},
@@ -41,7 +41,7 @@ const DIRECTIONS={
   trans:'sweep',title:'slam'},
 
  editorial:{
-  name:'EDITORIAL',ko:'에디토리얼',desc:'인디·어쿠스틱·잔잔한 곡 — 종이, 세리프, 여백과 그리드',
+  name:'EDITORIAL',ko:'에디토리얼',desc:'인디·어쿠스틱·잔잔한 곡 — 종이, 세리프, 여백과 그리드',descEn:'Indie, acoustic, quiet songs — paper, serifs, whitespace and grid',
   fonts:{d:F('Hahmlet',800,'serif',900),s:F('Gowun Batang',700,'serif'),m:F('Space Mono',400,'mono'),l:F('Noto Sans KR',300,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#f1ede4',fg:'#141414',ac:'#c8412c',sub:'#d5ccba',light:1}),bg:'paperGrid',pool:['typewriter','maskRise']},
@@ -56,7 +56,7 @@ const DIRECTIONS={
   trans:'cut',title:'elegant'},
 
  pop:{
-  name:'POP',ko:'팝',desc:'밝고 신나는 곡 — 원색 블록, 통통 튀는 글자',
+  name:'POP',ko:'팝',desc:'밝고 신나는 곡 — 원색 블록, 통통 튀는 글자',descEn:'Bright, upbeat songs — primary-colour blocks, bouncy type',
   fonts:{d:F('Bagel Fat One',400,'sans',900),s:F('Noto Serif KR',900,'serif'),m:F('Space Mono',700,'mono'),l:F('Noto Sans KR',500,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#ffdd2e',fg:'#141217',ac:'#ff3d7f',ac2:'#2f5bff',sub:'#f2c400',light:1}),bg:'popShapes',pool:['bounce','slam']},
@@ -71,7 +71,7 @@ const DIRECTIONS={
   trans:'circle',title:'slam'},
 
  lofi:{
-  name:'LO-FI',ko:'로파이',desc:'감성 랩·새벽 감성 — 바랜 색, VHS, 손글씨',
+  name:'LO-FI',ko:'로파이',desc:'감성 랩·새벽 감성 — 바랜 색, VHS, 손글씨',descEn:'Mellow rap, late-night moods — faded colour, VHS, handwriting',
   fonts:{d:F('Noto Sans KR',700,'sans'),s:F('Gowun Batang',700,'serif'),m:F('Space Mono',400,'mono'),l:F('Noto Sans KR',300,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#16181a',fg:'#e8e2d6',ac:'#9cc0d6',ac2:'#e0a96d',sub:'#2b3034'}),bg:'vhs',pool:['dissolve','maskRise']},
@@ -86,7 +86,7 @@ const DIRECTIONS={
   trans:'fadeBlack',title:'elegant'},
 
  cinematic:{
-  name:'CINEMATIC',ko:'시네마틱',desc:'웅장하고 극적인 곡 — 레터박스, 금빛, 느린 푸시인',
+  name:'CINEMATIC',ko:'시네마틱',desc:'웅장하고 극적인 곡 — 레터박스, 금빛, 느린 푸시인',descEn:'Epic, dramatic songs — letterbox, gold, slow push-in',
   fonts:{d:F('Song Myung',400,'serif',900),s:F('Noto Serif KR',900,'serif'),m:F('Space Mono',400,'mono'),l:F('Noto Sans KR',200,'sans'),h:F('Nanum Pen Script',400,'hand')},
   roles:{
    intro:{pal:()=>({bg:'#050505',fg:'#efe6d2',ac:'#d4a64a',sub:'#2b241a'}),bg:'rays',pool:['track','maskRise']},

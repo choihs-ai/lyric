@@ -3,6 +3,9 @@
    00 · UTIL — math, easing, random, color, storage, DOM
    ============================================================ */
 const $=id=>document.getElementById(id);
+/* UI language: saved choice, else the browser's. T(ko,en) picks the string; template text uses data-en (see applyLang in 80_app) */
+const LANG=(()=>{try{const s=localStorage.getItem('rz_lang');if(s==='ko'||s==='en')return s}catch(e){}return /^ko\b/i.test(navigator.language||'')?'ko':'en'})();
+const T=(ko,en)=>LANG==='en'?en:ko;
 const esc=x=>String(x).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]);
 const clamp=(x,a=0,b=1)=>x<a?a:x>b?b:x;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -29,4 +32,5 @@ function env(arr,t,d){const i=lastIdx(arr,t);return i<0?0:Math.exp(-(t-arr[i])/d
 const pad2=n=>String(n).padStart(2,'0'),pad3=n=>String(n).padStart(3,'0');
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
 function pickWeighted(items,weights,r){const tot=weights.reduce((a,b)=>a+b,0);if(tot<=0)return items[0];let x=r*tot;for(let i=0;i<items.length;i++){x-=weights[i];if(x<=0)return items[i]}return items[items.length-1]}

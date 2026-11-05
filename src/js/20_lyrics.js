@@ -1,7 +1,7 @@
 /* ============================================================
    20 · LYRICS — parsing, section slots, line & word timing
    ============================================================ */
-const DEMO=`Intro
+const DEMO_KO=`Intro
 여기는 인트로, 구호가 들어갈 자리
 반복되는 줄은 *겹쳐서* 쌓여요
 여기는 인트로, 구호가 들어갈 자리
@@ -36,6 +36,43 @@ Verse 2 - FEATURING
 Outro
 마지막 줄은 천천히
 흩어지며 사라져요`;
+/* original placeholder sentences (never song lyrics) */
+const DEMO_EN=`Intro
+This is the intro, where a hook would go
+Lines that *repeat* stack up in layers
+This is the intro, where a hook would go
+Lines that *repeat* stack up in layers
+
+Verse 1
+Your pasted words arrive one line at a time
+Each line moves a different way (Yeah)
+Letters *scatter* and come back together
+The screen *bursts* on the beat
+**Maximum emphasis** flips the frame
+It starts in colder colours
+Then slowly glows like an *ember*
+Short lines stack up tall
+Long sentences crossing the screen are fine too
+It carries on until the section ends
+
+Chorus
+The *chorus* goes big, one word at a time
+*Type* that fills the whole frame
+Colours trade places
+Shaking with the *rhythm*
+
+Verse 2 - FEATURING
+The second verse changes texture
+*Emphasis* and a flowing band
+Letters *tighten* as they enter
+Splitting up and down, then joining
+**One more time, even bigger**
+The name next to the section title shows on screen
+
+Outro
+The last line takes its time
+Drifting apart as it fades`;
+const DEMO=LANG==='en'?DEMO_EN:DEMO_KO;
 
 /* section headers: "Verse 1", "[Chorus]", "Chorus:", "Verse 2 - name", "후렴", "Pre-Chorus", "Hook" …
    pre-chorus is its own type (builds into the chorus, verse-level energy); hook is chorus-level but keeps its own label */

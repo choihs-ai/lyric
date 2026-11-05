@@ -1,15 +1,18 @@
 /* ============================================================
    10 · SONG — model, presets, in-browser audio analysis + mood features
    ============================================================ */
-/* hand-checked timeline for one known track (auto-applied when that audio is loaded) */
-const PRESETS=[{dur:137.38,title:'RESURRECTION',artist:'B-FREE',feat:'MUNCH MAN',bpm:140,t0:0.175,startBar:8,endBar:80,
-  slots:[[8,16],[16,39],[39,48],[48,76],[76,80]],direction:'brutal',kicks:/*PRESET_KICKS*/[],snares:/*PRESET_SNARES*/[]}];
+/* hand-checked timelines for specific tracks, auto-applied when audio with the same duration+bpm loads:
+   {dur,bpm,t0,startBar,endBar,slots,direction,title,artist,feat,kicks,snares}. Empty: no third-party song data ships in the app. */
+const PRESETS=[];
 
 let SONG=null,BEAT=0.5,BAR=2,T0=0,SONG_END=120,NB=60,KICKS=[],SNARES=[],NOV=[],PRESET=null;
 function setSong(o){SONG=o;BEAT=60/o.bpm;BAR=BEAT*4;T0=o.t0;SONG_END=o.dur-0.05;NB=Math.max(1,Math.floor((SONG_END-T0)/BAR+0.02));
   KICKS=o.kicks||[];SNARES=o.snares||[];NOV=o.nov||[];PRESET=o.preset||null;const sk=$('seek');if(sk)sk.max=SONG_END}
 function demoSong(){const bpm=140,t0=0.2,dur=120,b=60/bpm,k=[],sn=[];for(let t=t0+b*16;t<dur;t+=b*2){k.push(+t.toFixed(3));sn.push(+(t+b).toFixed(3))}
   return {bpm,t0,dur,kicks:k,snares:sn,startBar:4,endBar:Math.floor((dur-t0)/(b*4)),nov:[],demo:true,feats:null}}
+/* no audio file: a plain beat grid of the length the user typed (silent export, music added later in the Reels/TikTok editor) */
+function manualSong(dur,bpm){const b=60/bpm,k=[],sn=[];for(let t=b*4;t<dur;t+=b*2){k.push(+t.toFixed(3));sn.push(+(t+b).toFixed(3))}
+  return {bpm,t0:0,dur,kicks:k,snares:sn,startBar:Math.max(1,Math.round(8/(b*4))),endBar:Math.floor(dur/(b*4)),nov:[],manual:true,feats:null}}
 const barT=k=>T0+k*BAR;
 
 async function analyzeFile(file){
@@ -90,5 +93,10 @@ function analyzeBands(lo,hi,full,SR,dur,mid,side){
     kickRate:+(kicks.length/dur).toFixed(2),
     bpm:+bpm.toFixed(1)
   };
-  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats,v:4};
+  /* vocal-activity envelope for auto-sync: centre-panned 300–3400 Hz minus the side channel (mono files: full minus low band,
+     much less reliable), ~21 Hz, stored as ints 0–150 relative to the 97th percentile */
+  const vf=Math.max(1,Math.round(fr/20)),nvx=Math.floor(n/vf),vr=new Float32Array(nvx);
+  for(let k=0;k<nvx;k++){let q=0;for(let i=k*vf;i<(k+1)*vf;i++)q+=Mb?Math.max(0,Mb.r[i]-1.15*Sb.r[i]):Math.max(0,Fb.r[i]-1.5*Lb.r[i]);vr[k]=q/vf}
+  const vpk=Array.from(vr).sort((a,b)=>a-b)[Math.floor(nvx*0.97)]||1e-6,vox=Array.from(vr,x=>Math.min(150,Math.round(x/vpk*100)));
+  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats,vox,voxHz:+(fr/vf).toFixed(4),voxSt:!!Mb,v:5};
 }

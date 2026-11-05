@@ -51,31 +51,32 @@ function mp4Mux(tracks){
   const ftyp=box('ftyp',str('isom'),u32([0x200]),str('isomiso2avc1mp41'));
   const place=base=>{let o=base;order.forEach(c=>{c.off=o;o+=c.size})};
   place(0);place(ftyp.length+moov().length+8);              // moov size doesn't depend on the offsets, so two passes are exact
-  const mdat=order.reduce((a,c)=>a+c.size,0)+8;if(mdat>0xffffffff)throw new Error('영상이 너무 커요 (4GB 초과)');
+  const mdat=order.reduce((a,c)=>a+c.size,0)+8;if(mdat>0xffffffff)throw new Error(T('영상이 너무 커요 (4GB 초과)','Video too large (over 4 GB)'));
   const hdr=new Uint8Array(8);new DataView(hdr.buffer).setUint32(0,mdat);hdr.set(str('mdat'),4);
   return [ftyp,moov(),hdr,...order.flatMap(c=>c.s.map(s=>s.data))];
 }
 
-/* ---------- capability check: an H.264 config that fits W×H, plus AAC (or Opus) audio ---------- */
+/* ---------- capability check: an H.264 config that fits W×H, plus AAC (or Opus) audio when available.
+   {v,a:null} is still usable for silent exports (no audio file). ---------- */
 async function exportPlan(){
-  if(!window.VideoEncoder||!window.VideoFrame||!window.AudioEncoder||!window.AudioData)return null;
+  if(!window.VideoEncoder||!window.VideoFrame)return null;
   let v=null,a=null;
   for(const codec of ['avc1.640028','avc1.4d0028','avc1.420028']){const c={codec,width:W,height:H,bitrate:10e6,framerate:FPS,avc:{format:'avc'}};
     try{if((await VideoEncoder.isConfigSupported(c)).supported){v=c;break}}catch(e){}}
-  for(const [codec,kind,bitrate] of [['mp4a.40.2','aac',192000],['opus','opus',160000]]){const c={codec,sampleRate:ASR,numberOfChannels:2,bitrate};
+  if(window.AudioEncoder&&window.AudioData)for(const [codec,kind,bitrate] of [['mp4a.40.2','aac',192000],['opus','opus',160000]]){const c={codec,sampleRate:ASR,numberOfChannels:2,bitrate};
     try{if((await AudioEncoder.isConfigSupported(c)).supported){a={cfg:c,kind};break}}catch(e){}}
-  return v&&a?{v,a}:null;
+  return v?{v,a}:null;
 }
 
-/* ---------- offline render + encode. onProg(fraction, secondsLeft). Throws Error('cancel') when EXP_CANCEL is set. ---------- */
+/* ---------- offline render + encode. file=null → silent video of SONG.dur. onProg(fraction, secondsLeft). Throws Error('cancel') when EXP_CANCEL is set. ---------- */
 async function fastExport(plan,file,onProg){
   EXPORTING=true;EXP_CANCEL=false;let err=null,venc=null,aenc=null;const fail=e=>{err=err||e};
   try{
-    const ab=await file.arrayBuffer();const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(2,1,ASR);
-    const buf=await new Promise((res,rej)=>{const p=oc.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
+    let buf=null;if(file){const ab=await file.arrayBuffer();const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(2,1,ASR);
+      buf=await new Promise((res,rej)=>{const p=oc.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)})}
     /* audio first — it encodes far faster than realtime */
-    const kind=plan.a.kind,fd=kind==='aac'?1024:960,as=[];let adesc=null;
-    aenc=new AudioEncoder({output:(c,m)=>{if(m&&m.decoderConfig&&m.decoderConfig.description&&!adesc)adesc=toU8(m.decoderConfig.description);
+    const kind=plan.a?plan.a.kind:'',fd=kind==='aac'?1024:960,as=[];let adesc=null;
+    if(buf){aenc=new AudioEncoder({output:(c,m)=>{if(m&&m.decoderConfig&&m.decoderConfig.description&&!adesc)adesc=toU8(m.decoderConfig.description);
       let d=new Uint8Array(c.byteLength);c.copyTo(d);if(kind==='aac'&&d[0]===0xff&&(d[1]&0xf6)===0xf0)d=d.subarray(d[1]&1?7:9);   // strip ADTS if an encoder adds it
       as.push({data:d,dur:c.duration?Math.round(c.duration*ASR/1e6):fd,cts:0,key:true})},error:fail});
     aenc.configure(plan.a.cfg);
@@ -85,25 +86,26 @@ async function fastExport(plan,file,onProg){
       const ad=new AudioData({format:'f32-planar',sampleRate:ASR,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(o*1e6/ASR),data:d});aenc.encode(ad);ad.close();
       while(aenc.encodeQueueSize>8&&!err)await sleep(2);
       if(o%(B*30)===0){onProg(0.04*o/buf.length,0);await sleep(0)}}
-    await aenc.flush();if(err)throw err;
+    await aenc.flush();if(err)throw err}
     /* video: every frame rendered offline through the normal frame(t) path */
     const vs=[];let avcC=null;
     venc=new VideoEncoder({output:(c,m)=>{if(m&&m.decoderConfig&&m.decoderConfig.description&&!avcC)avcC=toU8(m.decoderConfig.description);
       const d=new Uint8Array(c.byteLength);c.copyTo(d);vs.push({data:d,key:c.type==='key',pts:Math.round(c.timestamp*VTS/1e6)})},error:fail});
     venc.configure(plan.v);
-    const nF=Math.ceil(buf.duration*FPS),t0=performance.now();
+    const nF=Math.ceil((buf?buf.duration:SONG.dur)*FPS),t0=performance.now();
     for(let i=0;i<nF;i++){if(err)throw err;if(EXP_CANCEL)throw new Error('cancel');
       frame(i/FPS);
       const vf=new VideoFrame(cv,{timestamp:Math.round(i*1e6/FPS),duration:Math.round(1e6/FPS)});venc.encode(vf,{keyFrame:i%(FPS*2)===0});vf.close();
       while(venc.encodeQueueSize>4&&!err)await sleep(1);
       if(i%5===4||i===nF-1){const f=(i+1)/nF;onProg(0.04+0.95*f,(performance.now()-t0)/1000/f*(1-f));await sleep(0)}}
     await venc.flush();if(err)throw err;
-    if(!avcC||!vs.length)throw new Error('H.264 인코더가 설정 정보를 주지 않았어요');
+    if(!avcC||!vs.length)throw new Error(T('H.264 인코더가 설정 정보를 주지 않았어요','The H.264 encoder returned no configuration'));
     /* decode order → dts; any B-frame reordering becomes ctts offsets */
     const sp=vs.map(s=>s.pts).sort((a,b)=>a-b);vs.forEach((s,i)=>{s.dur=i+1<vs.length?sp[i+1]-sp[i]:VTS/FPS;s.cts=s.pts-sp[i]});
     const pre=adesc&&adesc.length>=12&&String.fromCharCode(...adesc.subarray(0,8))==='OpusHead'?adesc[10]|adesc[11]<<8:312;
-    const parts=mp4Mux([{kind:'video',timescale:VTS,width:W,height:H,avcC,samples:vs},
-      {kind:'audio',codec:kind,timescale:ASR,sampleRate:ASR,channels:2,bitrate:plan.a.cfg.bitrate,asc:makeASC(ASR,2),preSkip:pre,samples:as}]);
+    const tracks=[{kind:'video',timescale:VTS,width:W,height:H,avcC,samples:vs}];
+    if(buf)tracks.push({kind:'audio',codec:kind,timescale:ASR,sampleRate:ASR,channels:2,bitrate:plan.a.cfg.bitrate,asc:makeASC(ASR,2),preSkip:pre,samples:as});
+    const parts=mp4Mux(tracks);
     onProg(1,0);
     return new Blob(parts,{type:'video/mp4'});
   }finally{EXPORTING=false;[venc,aenc].forEach(e=>{try{if(e&&e.state!=='closed')e.close()}catch(x){}})}

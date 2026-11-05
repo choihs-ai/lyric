@@ -13,7 +13,7 @@ const KW={
   lofi:['눈물','혼자','외로','우울','아파','잠','새벽','담배','공허','그리워','상처','sad','alone','rain','tired','비가'],
   cinematic:['영원','운명','왕','전설','불멸','역사','하늘','천국','지옥','부활','legend','forever','destiny','king','empire'],
 };
-const KW_KO={brutal:'공격적·투쟁적',neon:'밤·도시',editorial:'일상·서정',pop:'신남·설렘',lofi:'우울·새벽',cinematic:'영원·운명'};
+const KW_KO=LANG==='en'?{brutal:'aggressive, combative',neon:'night, city',editorial:'everyday, lyrical',pop:'upbeat, giddy',lofi:'blue, late-night',cinematic:'eternal, fateful'}:{brutal:'공격적·투쟁적',neon:'밤·도시',editorial:'일상·서정',pop:'신남·설렘',lofi:'우울·새벽',cinematic:'영원·운명'};
 let AUTO_PICK=null,AI_RESULT=null,AI_EMPH_ON=true;
 
 function autoDirection(feats,text){
@@ -25,11 +25,11 @@ function autoDirection(feats,text){
     sc.brutal+=ar*1.25+low*0.6-br*0.35;sc.pop+=ar*0.85+br*0.8-low*0.55;sc.neon+=(1-Math.abs(ar-0.55)*2)*0.75+low*0.25+(1-br)*0.15;
     sc.editorial+=(1-ar)*1.0+br*0.3-low*0.35;sc.lofi+=(1-ar)*0.8+(1-br)*0.35+(1-dyn)*0.2;sc.cinematic+=dyn*0.95+(1-ar)*0.35;
     const tag=(c,s)=>c&&why[s.k].push(s.t);
-    [['brutal',ar>0.6,'빠르고 밀도 높은 리듬'],['brutal',low>0.55,'저음 비중 큼'],['pop',br>0.55,'밝은 음색'],['pop',ar>0.55,'에너지 높음'],
-     ['neon',ar>0.35&&ar<0.75,'중간 템포의 그루브'],['editorial',ar<0.4,'잔잔한 에너지'],['lofi',br<0.4&&ar<0.5,'어둡고 차분한 음색'],
-     ['cinematic',dyn>0.55,'다이내믹 변화 큼']].forEach(([k,c,t])=>tag(c,{k,t}));
+    [['brutal',ar>0.6,T('빠르고 밀도 높은 리듬','fast, dense rhythm')],['brutal',low>0.55,T('저음 비중 큼','heavy low end')],['pop',br>0.55,T('밝은 음색','bright tone')],['pop',ar>0.55,T('에너지 높음','high energy')],
+     ['neon',ar>0.35&&ar<0.75,T('중간 템포의 그루브','mid-tempo groove')],['editorial',ar<0.4,T('잔잔한 에너지','calm energy')],['lofi',br<0.4&&ar<0.5,T('어둡고 차분한 음색','dark, calm tone')],
+     ['cinematic',dyn>0.55,T('다이내믹 변화 큼','big dynamic swings')]].forEach(([k,c,t])=>tag(c,{k,t}));
   }
-  if(text){const low=text.toLowerCase();DIR_KEYS.forEach(k=>{let h=0;KW[k].forEach(w=>{const m=low.split(w).length-1;h+=m});if(h){sc[k]+=Math.min(0.6,h*0.08);why[k].push(`가사 성향: ${KW_KO[k]}`)}})}
+  if(text){const low=text.toLowerCase();DIR_KEYS.forEach(k=>{let h=0;KW[k].forEach(w=>{const m=low.split(w).length-1;h+=m});if(h){sc[k]+=Math.min(0.6,h*0.08);why[k].push(T(`가사 성향: ${KW_KO[k]}`,`lyrics feel: ${KW_KO[k]}`))}})}
   const order=[...DIR_KEYS].sort((a,b)=>sc[b]-sc[a]);
   return {key:order[0],order,scores:sc,why};
 }
@@ -90,7 +90,7 @@ LYRICS (each line numbered, each word prefixed by its index):
 ${lines}
 
 Reply with ONLY this JSON:
-{"direction":"<key>","why":"<one Korean sentence on the song's mood and why this direction fits>","sections":[{"i":<section index>,"mood":"<Korean, 2-4 words>","intensity":<0.0-1.0>}],"emph":[{"l":<line index>,"w":[<word indices>],"lv":<1 or 2>}]}
+{"direction":"<key>","why":"<one ${LANG==='en'?'English':'Korean'} sentence on the song's mood and why this direction fits>","sections":[{"i":<section index>,"mood":"<${LANG==='en'?'English':'Korean'}, 2-4 words>","intensity":<0.0-1.0>}],"emph":[{"l":<line index>,"w":[<word indices>],"lv":<1 or 2>}]}
 
 Rules:
 - sections: one entry per section; intensity reflects emotional/energetic peak (chorus/climax high, calm parts low).
@@ -101,16 +101,16 @@ let aiCtl=null;
 async function runAI(){
   if(!SAMPLE)return;const st=$('aiStatus'),btn=$('bAI');
   const cached=(()=>{try{return JSON.parse(lsGet(aiKey(),'null'))}catch(e){return null}})();
-  if(cached){applyAI(cached);st.innerHTML=aiSummary(cached)+' <span class="dim">(저장된 분석)</span>';return}
+  if(cached){applyAI(cached);st.innerHTML=aiSummary(cached)+T(' <span class="dim">(저장된 분석)</span>',' <span class="dim">(saved analysis)</span>');return}
   aiCtl=new AbortController();btn.disabled=true;$('bAIStop').classList.remove('hidden');
-  const t0=Date.now();const tick=setInterval(()=>{st.innerHTML=`<b>AI 디렉터가 곡을 분석하는 중…</b> ${Math.round((Date.now()-t0)/1000)}초 · 보통 20~60초 걸려요`},500);
+  const t0=Date.now();const tick=setInterval(()=>{st.innerHTML=T(`<b>AI 디렉터가 곡을 분석하는 중…</b> ${Math.round((Date.now()-t0)/1000)}초 · 보통 20~60초 걸려요`,`<b>The AI director is listening…</b> ${Math.round((Date.now()-t0)/1000)}s · usually 20–60s`)},500);
   try{
     const res=await SAMPLE.json(aiPrompt(),{signal:aiCtl.signal,modelTier:'default',cache:{gcTime:86400000}});
     if(!res||typeof res!=='object')throw {code:'invalid_json'};
     lsSet(aiKey(),JSON.stringify(res));applyAI(res);st.innerHTML=aiSummary(res);
   }catch(e){const c=e&&e.code;
-    st.innerHTML=c==='cancelled'?'분석을 멈췄어요.':c==='not_granted'||c==='sampling_disabled'?'이 화면에서는 AI 디렉터를 쓸 수 없어요. 자동 추천을 그대로 쓰면 돼요.':
-      c==='rate_limited'?'잠시 후 다시 눌러 주세요 (사용량 제한).':c==='invalid_json'?'분석 결과를 읽지 못했어요. 한 번 더 눌러 주세요.':'분석에 실패했어요. 다시 눌러 주세요.';
+    st.innerHTML=c==='cancelled'?T('분석을 멈췄어요.','Stopped.'):c==='not_granted'||c==='sampling_disabled'?T('이 화면에서는 AI 디렉터를 쓸 수 없어요. 자동 추천을 그대로 쓰면 돼요.','The AI director isn\'t available here. The automatic pick works fine.'):
+      c==='rate_limited'?T('잠시 후 다시 눌러 주세요 (사용량 제한).','Try again in a moment (usage limit).'):c==='invalid_json'?T('분석 결과를 읽지 못했어요. 한 번 더 눌러 주세요.','Couldn\'t read the result. Please try once more.'):T('분석에 실패했어요. 다시 눌러 주세요.','Analysis failed. Please try again.');
     if(c==='not_granted'||c==='sampling_disabled'){SAMPLE=null;refreshAIUI()}}
   finally{clearInterval(tick);btn.disabled=false;$('bAIStop').classList.add('hidden')}
 }
@@ -123,6 +123,6 @@ function applyAI(res){
 function aiSummary(r){
   const moods=(r.sections||[]).map(s=>{const sec=SECS[+s.i];return sec?`${sec.label} <b>${esc(String(s.mood||'').slice(0,24))}</b> ${Math.round((+s.intensity||0)*100)}%`:''}).filter(Boolean).join(' · ');
   const ne=(r.emph||[]).length;
-  return `<b>AI 디렉터 → ${esc(DIRECTIONS[r.direction]?DIRECTIONS[r.direction].name:'—')}</b><br>${esc(String(r.why||'').slice(0,160))}<br><span class="dim">${moods}${ne?` · 강조 단어 ${ne}곳 선정`:''}</span>`;
+  return `<b>${T('AI 디렉터','AI director')} → ${esc(DIRECTIONS[r.direction]?DIRECTIONS[r.direction].name:'—')}</b><br>${esc(String(r.why||'').slice(0,160))}<br><span class="dim">${moods}${ne?T(` · 강조 단어 ${ne}곳 선정`,` · ${ne} emphasis picks`):''}</span>`;
 }
 function refreshAIUI(){const box=$('aiBox');if(!box)return;box.classList.toggle('hidden',!SAMPLE)}
