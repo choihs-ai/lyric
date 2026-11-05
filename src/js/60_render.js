@@ -22,8 +22,9 @@ function chapter(sec,pal,p){
   if(p>2.2||p<0)return;const a=p<0.25?eOutExpo(p/0.25):p>1.8?1-(p-1.8)/0.4:1;const num=pad2(sec.idx+1);const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
   ctx.save();ctx.globalAlpha=a;
   if(DIR.trans==='slit'||DIR.trans==='sweep'||DIR.trans==='circle'){setFont(H*(W>H?0.26:0.14),'d');ctx.textBaseline='alphabetic';ctx.textAlign='left';ctx.strokeStyle=pal.ac;ctx.lineWidth=2*U;
-    const x=W*0.06-(1-a)*60*U,y=H*0.9;ctx.strokeText(num,x,y);const nw=ctx.measureText(num).width;setFont(20*U,'m');ctx.fillStyle=pal.fg;ctx.fillText(sec.label+(sec.mood?' · '+sec.mood:''),x+nw+24*U,y-36*U);ctx.globalAlpha=a*0.6;ctx.fillText(secArtist(sec),x+nw+24*U,y-8*U)}
-  else{const role=DIR.motion.hand?'h':'s';setFont((role==='h'?34:20)*U,role);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=pal.fg;const y=H-lb-70*U;
+    const x=W*0.06-(1-a)*60*U,y=W>H?H*0.9:H*0.78;   // portrait: keep clear of Shorts/Reels caption area
+   ctx.strokeText(num,x,y);const nw=ctx.measureText(num).width;setFont(20*U,'m');ctx.fillStyle=pal.fg;ctx.fillText(sec.label+(sec.mood?' · '+sec.mood:''),x+nw+24*U,y-36*U);ctx.globalAlpha=a*0.6;ctx.fillText(secArtist(sec),x+nw+24*U,y-8*U)}
+  else{const role=DIR.motion.hand?'h':'s';setFont((role==='h'?34:20)*U,role);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=pal.fg;const y=W>H?H-lb-70*U:H*0.8;
     const txt=`${num}  ·  ${sec.label}${sec.mood?'  ·  '+sec.mood:''}`;ctx.fillText(txt,W/2,y);const tw=ctx.measureText(txt).width;ctx.fillStyle=pal.ac;ctx.fillRect(W/2-tw/2-20*U-40*U*a,y,40*U*a,1.5*U);ctx.fillRect(W/2+tw/2+20*U,y,40*U*a,1.5*U)}
   ctx.restore();
 }
@@ -51,7 +52,7 @@ function titleSlam(t,end){
   ctx.save();ctx.strokeStyle=hexA(pal.fg,0.14);ctx.lineWidth=1*U;
   for(let i=1;i<12;i++){const p=eOutExpo(clamp((t-0.3-i*0.08)/1.8)),x=W*i/12;ctx.beginPath();ctx.moveTo(x,H/2-H/2*p);ctx.lineTo(x,H/2+H/2*p);ctx.stroke()}
   for(let j=1;j<6;j++){const p=eOutExpo(clamp((t-0.9-j*0.1)/1.8)),y=H*j/6;ctx.beginPath();ctx.moveTo(W/2-W/2*p,y);ctx.lineTo(W/2+W/2*p,y);ctx.stroke()}ctx.restore();
-  const title=metaTitle(),art=metaArtist(),feat=metaFeat(),cut=x=>x.length>26?x.slice(0,25)+'…':x;
+  const title=titleText(),art=metaArtist(),feat=metaFeat(),cut=x=>x.length>26?x.slice(0,25)+'…':x;
   const labs=[[cut(art),0.07,0.1],[feat?cut('FEAT. '+feat):'',0.07,0.135],[cut('TRACK — '+title),0.6,0.1],[`${Math.round(SONG.bpm)} BPM · ${DIR.name} · ${NB} BARS`,0.6,0.135],['FAN-MADE KINETIC LYRIC MOTION',0.07,0.87],['00 — OPENING',0.6,0.87]].filter(x=>x[0]);
   setFont(18*U,'m');ctx.fillStyle=pal.fg;ctx.textBaseline='top';ctx.textAlign='left';const ls=Math.min(0.45,end/16);
   labs.forEach(([q,x,y],i)=>{const st=0.3+i*ls,nn=Math.floor(clamp((t-st)/Math.min(0.5,end/10))*q.length);if(nn<=0)return;ctx.globalAlpha=0.7;ctx.fillText(q.slice(0,nn)+(nn<q.length&&(t*8|0)%2?'▌':''),W*x,H*y)});ctx.globalAlpha=1;
@@ -73,7 +74,7 @@ function titleSlam(t,end){
   return pal;
 }
 function titleElegant(t,end){
-  const pal=titleBase(t,end),title=metaTitle(),art=metaArtist(),feat=metaFeat();const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
+  const pal=titleBase(t,end),title=titleText(),art=metaArtist(),feat=metaFeat();const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
   const role=DIR_KEY==='lofi'?'s':'d';const cs=Array.from(title);setFont(100,role);const w100=ctx.measureText(title).width||1;const px=Math.min(H*0.2,100*W*0.62/w100);setFont(px,role);
   const cw=cs.map(c=>ctx.measureText(c).width),sumw=cw.reduce((a,b)=>a+b,0);
   const p=clamp(t/(end*0.85)),sp=px*(0.65*(1-E.outCubic(p))+0.12),total=sumw+sp*(cs.length-1);const out=clamp((t-(end-0.9))/0.9);
@@ -81,15 +82,23 @@ function titleElegant(t,end){
   cs.forEach((c,i)=>{const a=clamp((t-0.4-i*Math.min(0.18,end*0.4/cs.length))/1.2);ctx.globalAlpha=(1-out)*E.outCubic(a);ctx.fillStyle=pal.fg;ctx.fillText(c,x,y+(1-E.outCubic(a))*20*U);x+=cw[i]+sp});
   const rl=E.outExpo(clamp((t-0.8)/2.2))*(total+80*U);ctx.globalAlpha=(1-out)*0.8;ctx.fillStyle=pal.ac;ctx.fillRect(W/2-rl/2,y-px*0.85,rl,1.5*U);ctx.fillRect(W/2-rl/2,y+px*0.8,rl,1.5*U);
   const ca=clamp((t-1.6)/1.2)*(1-out);setFont(19*U,'m');ctx.textAlign='center';ctx.globalAlpha=ca*0.85;ctx.fillStyle=pal.fg;
-  ctx.fillText(art+(feat?'  ·  FEAT. '+feat:''),W/2,y+px*0.8+44*U);ctx.globalAlpha=ca*0.45;ctx.fillText(`${DIR.name} · ${Math.round(SONG.bpm)} BPM`,W/2,y-px*0.85-36*U);
+  ctx.fillText(credit('  ·  '),W/2,y+px*0.8+44*U);ctx.globalAlpha=ca*0.45;ctx.fillText(`${DIR.name} · ${Math.round(SONG.bpm)} BPM`,W/2,y-px*0.85-36*U);
   ctx.restore();return pal;
 }
 function drawEnd(t,st){
   const sec={role:'outro',idx:SECS.length,label:'END',artist:'',firstStart:st,lastEnd:st+1};const pal=roleOf(sec).pal(sec,t,{li:0});drawBG(sec,pal,t,t,{text:'',words:[]});
   const a=clamp((t-st)/1.2);ctx.save();ctx.globalAlpha=a;ctx.textAlign='center';ctx.textBaseline='middle';
-  const title=metaTitle();setFont(100,'d');const w100=ctx.measureText(title).width||1;const px=Math.min(W*0.08,H*0.14,100*W*0.8/w100);setFont(px,'d');ctx.strokeStyle=pal.fg;ctx.lineWidth=2*U;ctx.strokeText(title,W/2,H/2-px*0.2);
-  const feat=metaFeat();setFont(20*U,'m');ctx.fillStyle=pal.ac;ctx.fillText(metaArtist()+(feat?' — FEAT. '+feat:''),W/2,H/2+px*0.6);ctx.globalAlpha=a*0.45;ctx.fillStyle=pal.fg;ctx.fillText('FAN-MADE KINETIC LYRIC MOTION',W/2,H/2+px*0.6+34*U);ctx.restore();
+  const title=titleText();setFont(100,'d');const w100=ctx.measureText(title).width||1;const px=Math.min(W*0.08,H*0.14,100*W*0.8/w100);setFont(px,'d');ctx.strokeStyle=pal.fg;ctx.lineWidth=2*U;ctx.strokeText(title,W/2,H/2-px*0.2);
+  setFont(20*U,'m');ctx.fillStyle=pal.ac;ctx.fillText(credit(' — '),W/2,H/2+px*0.6);ctx.globalAlpha=a*0.45;ctx.fillStyle=pal.fg;ctx.fillText('FAN-MADE KINETIC LYRIC MOTION',W/2,H/2+px*0.6+34*U);ctx.restore();
   return pal;
+}
+/* gaps between lines (instrumental breaks, partial lyrics): a slow outline of what comes next instead of an empty screen */
+function drawInterlude(tl,gs,nx,pal){
+  const ge=nx.start,a=Math.min(clamp((tl-gs)/0.8),clamp((ge-0.3-tl)/0.6))*(0.2+K*0.14);if(a<=0.01)return;
+  const tx=UP(nx.li===0?nx.sec.label:(metaTitle()||nx.sec.label));setFont(100,'d');const w=ctx.measureText(tx).width||1,px=Math.min(H*0.26,100*W*0.84/w);
+  ctx.save();ctx.translate(W/2,H/2);ctx.scale(1+K*0.025,1+K*0.025);setFont(px,'d');ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.globalAlpha=a;ctx.strokeStyle=pal.ac2||pal.ac;ctx.lineWidth=2*U;ctx.strokeText(tx,0,0);
+  ctx.globalAlpha=Math.min(1,a*2.2);ctx.fillStyle=pal.fg;ctx.fillRect(-W*0.15,px*0.62,W*0.3*clamp((tl-gs)/(ge-gs)),2*U);ctx.restore();
 }
 /* ---------- main frame ---------- */
 function frame(t){
@@ -106,12 +115,16 @@ function frame(t){
     const imp=impactNow(tl),sh=DIR.motion.shake*INTENSITY;
     const shake=(K*3+imp.e*(imp.lvl>1?26:9))*U*sh,r=rnd((t*30)|0);
     const drift=(DIR_KEY==='cinematic'||DIR_KEY==='lofi'||DIR_KEY==='editorial')?clamp((tl-L.start)/Math.max(0.5,L.end-L.start))*0.035:0;
-    ctx.save();ctx.translate(W/2+(r()-0.5)*shake*2,H/2+(r()-0.5)*shake*2);const z=1+(K*0.012+imp.e*0.02)*sh+drift;ctx.scale(z,z);ctx.translate(-W/2,-H/2);
+    /* portrait: shrink the lyric layer slightly and lift it so it sits inside the Shorts/Reels safe area */
+    const pv=W>H,cy=pv?H*0.465:H/2,z=(1+(K*0.012+imp.e*0.02)*sh+drift)*(pv?0.9:1);
+    ctx.save();ctx.translate(W/2+(r()-0.5)*shake*2,cy+(r()-0.5)*shake*2);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
     if(imp.e>0.02)drawImpactBack(imp,pal);
     const P=LINES[ci-1];
     if(P){const x=(tl-L.start)/exitDur(P.mode);if(x<1&&P.end>=L.start-0.01)drawLine(P,tl,paletteFor(P.sec,tl,P),clamp(x))}
     const ex=tl>L.end?(tl-L.end)/exitDur(L.mode):0;if(ex<1)drawLine(L,tl,pal,clamp(ex));
-    drawAdlibs(L,tl,pal);ctx.restore();GA=1;
+    drawAdlibs(L,tl,pal);
+    const nx=LINES[ci+1],gs=L.end+exitDur(L.mode);if(nx&&nx.start-gs>2.5&&tl>gs&&tl<nx.start)drawInterlude(tl,gs,nx,pal);
+    ctx.restore();GA=1;
     const ss=sec.firstStart;if(sec.idx>0&&tl>=ss)transition(sec,pal,(tl-ss)/0.5,tl);
     chapter(sec,pal,tl-ss);
     const gl=DIR.motion.glitch*INTENSITY;

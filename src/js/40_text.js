@@ -36,6 +36,7 @@ const wordRole=(w,role)=>(DIR.motion.hand&&w.emph&&role==='d')?'h':role;
 /* layout: wraps words into rows that fit maxW/maxH, emphasized words larger */
 function layout(L,key,maxW,maxH,maxRows,basePx,role='d',upper=true,emScale=1.28){
   const k=key+W+DIR_KEY;if(L._c[k])return L._c[k];
+  if(H>W&&maxRows>=3)maxRows+=2;            // portrait has height to spare: more rows → bigger, readable type
   let px=basePx,res;
   for(let it=0;it<44;it++){
     const items=L.words.map((w,i)=>{const rr=wordRole(w,role),hs=rr==='h'?1.25:1;const size=px*hs*(w.emph?(w.emph>1?emScale*1.1:emScale):1);setFont(size,rr);

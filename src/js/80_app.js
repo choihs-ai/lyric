@@ -2,11 +2,16 @@
    80 · APP — metadata, analysis UI, direction picker, playback,
         tap-sync, recording, init
    ============================================================ */
-function metaTitle(){return (($('inTitle')&&$('inTitle').value.trim())||(PRESET&&PRESET.title)||'UNTITLED').toUpperCase()}
-function metaArtist(){return (($('inArtist')&&$('inArtist').value.trim())||(PRESET&&PRESET.artist)||'ARTIST').toUpperCase()}
+/* empty fields stay empty on screen: title falls back to the audio file name, artist is simply hidden */
+let AUDIO_TITLE='';
+const fileTitle=n=>n.replace(/\.[^.]+$/,'').replace(/^\s*\d{1,3}\s*[-._)]?\s+/,'').replace(/_+/g,' ').replace(/\s+/g,' ').trim().slice(0,40);
+function metaTitle(){return (($('inTitle')&&$('inTitle').value.trim())||(PRESET&&PRESET.title)||AUDIO_TITLE||'').toUpperCase()}
+function titleText(){return metaTitle()||'LYRIC MOTION'}
+function metaArtist(){return (($('inArtist')&&$('inArtist').value.trim())||(PRESET&&PRESET.artist)||'').toUpperCase()}
+function credit(sep){const a=metaArtist(),f=metaFeat();return [a,f?'FEAT. '+f:''].filter(Boolean).join(sep)}
 function metaFeat(){return (($('inFeat')&&$('inFeat').value.trim())||(PRESET&&PRESET.feat)||'').toUpperCase()}
 function secArtist(sec){return sec.artist?sec.artist.toUpperCase():metaArtist()}
-function saveMeta(){lsSet('rz_meta',JSON.stringify({t:$('inTitle').value,a:$('inArtist').value,f:$('inFeat').value}));const tt=metaTitle();$('hTitle').textContent=tt==='UNTITLED'?'LYRIC MOTION':tt}
+function saveMeta(){lsSet('rz_meta',JSON.stringify({t:$('inTitle').value,a:$('inArtist').value,f:$('inFeat').value}));$('hTitle').textContent=titleText()}
 
 /* ---------- direction picker ---------- */
 let DIR_LOCK=lsGet('rz_dir_lock','0')==='1';
@@ -51,12 +56,14 @@ let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer
 function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
 function setRate(r){if(r===RATE)return;if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
 function seekTo(s){s=clamp(s,0,SONG_END);if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
-function startPlay(){if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
+function startPlay(){hideEnd();if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
 function pausePlay(){if(hasAudio)au.pause();else clockT=now();playing=false}
 function ensureGraph(){if(actx)return;try{const AC=window.AudioContext||window.webkitAudioContext;actx=new AC();const src=actx.createMediaElementSource(au);src.connect(actx.destination);if(actx.createMediaStreamDestination){msDest=actx.createMediaStreamDestination();src.connect(msDest)}}catch(e){actx=null;msDest=null}}
-function onEnded(){playing=false;if(recording)stopRec();if(syncMode)endSync();showSetup()}
+function onEnded(){playing=false;if(recording){stopRec();showSetup();return}if(syncMode){endSync();showSetup();return}showEnd()}   // plain playback ends on replay/save/settings, not the long form
+function showEnd(){$('hud').classList.add('hidden');$('endBar').classList.remove('hidden')}
+function hideEnd(){$('endBar').classList.add('hidden')}
 au.addEventListener('ended',onEnded);au.addEventListener('pause',()=>{if(!au.ended)playing=false});au.addEventListener('play',()=>{playing=true});
-function showSetup(){$('setup').classList.remove('hidden');$('hud').classList.add('hidden')}
+function showSetup(){hideEnd();$('setup').classList.remove('hidden');$('hud').classList.add('hidden')}
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?'녹화 중지':'설정'}
@@ -69,7 +76,7 @@ $('lyrics').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{
 $('bDemo').onclick=()=>{$('lyrics').value=DEMO;lyricsText=DEMO;lyricsChanged()};
 $('bClear').onclick=()=>{$('lyrics').value='';lyricsText='';lyricsChanged()};
 $('fLyr').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(s=>{$('lyrics').value=s;lyricsText=s;lyricsChanged()})};
-$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;
+$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);saveMeta();
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · 준비됨`;
   const key='rz_an4_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML='<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 (몇 초 걸려요)';$('bpmRow').classList.add('hidden');
@@ -87,6 +94,9 @@ $('hMenu').onclick=e=>{e.stopPropagation();if(recording){stopRec();pausePlay()}e
 $('hFull').onclick=e=>{e.stopPropagation();$('hud').classList.add('fade')};
 $('hPlay').onclick=e=>{e.stopPropagation();if(playing)pausePlay();else startPlay();pokeHud()};
 $('seek').oninput=e=>{seekTo(+e.target.value);pokeHud()};
+$('endReplay').onclick=e=>{e.stopPropagation();seekTo(0);startPlay();pokeHud()};
+$('endSave').onclick=e=>{e.stopPropagation();showSetup();$('bRec').scrollIntoView({block:'center'});$('bRec').click()};
+$('endSetup').onclick=e=>{e.stopPropagation();showSetup()};
 $('stage').addEventListener('pointerdown',e=>{if(syncMode){e.preventDefault();syncTap();return}if($('setup').classList.contains('hidden'))pokeHud()});
 addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;
   if(syncMode&&(e.code==='Backspace'||e.code==='KeyZ')){e.preventDefault();syncUndo();return}
@@ -138,7 +148,7 @@ let PLAN_P=null,WAKE=null,SAVE_URL=null;
 const getPlan=()=>PLAN_P||(PLAN_P=exportPlan().catch(()=>null));   // cached so the click handler stays inside the user gesture
 async function wake(on){try{if(on&&!WAKE&&navigator.wakeLock){WAKE=await navigator.wakeLock.request('screen');WAKE.addEventListener('release',()=>{WAKE=null})}
   else if(!on&&WAKE){const w=WAKE;WAKE=null;await w.release()}}catch(e){WAKE=null}}
-function outName(ext){const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
+function outName(ext){const slug=(metaTitle()||'lyric_motion').toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
   return `${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`}
 function offerSave(blob){
   const out=$('recOut'),type=blob.type||'video/webm',ext=type.includes('mp4')?'mp4':'webm',name=outName(ext);

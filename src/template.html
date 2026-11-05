@@ -104,6 +104,9 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
+#endBar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);z-index:6;width:min(calc(100vw - 32px),520px);
+  display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:rgba(7,7,7,.82);border:1px solid #3a3632;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#endBar .btn{flex:1 1 auto;padding:0 12px;white-space:nowrap}
 #recBadge{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:14px;z-index:6;background:var(--red);color:#fff;font:700 12px "Space Mono",ui-monospace,Menlo,monospace;padding:8px 10px;letter-spacing:.1em}
 </style>
 </head>
@@ -116,6 +119,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 </div>
 <div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo">되돌리기</button><button class="hbtn" id="syncStop">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
+<div id="endBar" class="hidden"><button class="btn primary" id="endReplay">↺ 다시 보기</button><button class="btn rec" id="endSave">● 영상으로 저장</button><button class="btn ghost" id="endSetup">설정</button></div>
 
 <div id="setup">
  <div class="inner">
@@ -132,8 +136,8 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
     <div class="note" id="anInfo">음원을 고르면 박자(BPM)·킥·스네어·구간 경계를 이 기기에서 바로 분석해요.</div>
     <div class="row hidden" id="bpmRow"><button class="btn ghost" id="bBpmHalf">BPM ÷2</button><button class="btn ghost" id="bBpmDbl">BPM ×2</button></div>
     <div class="fields">
-      <label>곡 제목<input id="inTitle" maxlength="40" placeholder="오프닝·화면 구석에 표시돼요" autocomplete="off"></label>
-      <label>아티스트<input id="inArtist" maxlength="40" placeholder="구간 제목에 이름이 없으면 이 이름이 표시돼요" autocomplete="off"></label>
+      <label>곡 제목<input id="inTitle" maxlength="40" placeholder="비워 두면 음원 파일 이름을 써요" autocomplete="off"></label>
+      <label>아티스트<input id="inArtist" maxlength="40" placeholder="비워 두면 영상에 표시하지 않아요" autocomplete="off"></label>
       <label>피처링 (선택)<input id="inFeat" maxlength="40" placeholder="없으면 비워 두기" autocomplete="off"></label>
     </div>
   </div></section>

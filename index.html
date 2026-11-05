@@ -104,6 +104,9 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
+#endBar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);z-index:6;width:min(calc(100vw - 32px),520px);
+  display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:rgba(7,7,7,.82);border:1px solid #3a3632;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#endBar .btn{flex:1 1 auto;padding:0 12px;white-space:nowrap}
 #recBadge{position:fixed;top:calc(env(safe-area-inset-top) + 14px);right:14px;z-index:6;background:var(--red);color:#fff;font:700 12px "Space Mono",ui-monospace,Menlo,monospace;padding:8px 10px;letter-spacing:.1em}
 </style>
 </head>
@@ -116,6 +119,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 </div>
 <div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo">되돌리기</button><button class="hbtn" id="syncStop">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
+<div id="endBar" class="hidden"><button class="btn primary" id="endReplay">↺ 다시 보기</button><button class="btn rec" id="endSave">● 영상으로 저장</button><button class="btn ghost" id="endSetup">설정</button></div>
 
 <div id="setup">
  <div class="inner">
@@ -132,8 +136,8 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
     <div class="note" id="anInfo">음원을 고르면 박자(BPM)·킥·스네어·구간 경계를 이 기기에서 바로 분석해요.</div>
     <div class="row hidden" id="bpmRow"><button class="btn ghost" id="bBpmHalf">BPM ÷2</button><button class="btn ghost" id="bBpmDbl">BPM ×2</button></div>
     <div class="fields">
-      <label>곡 제목<input id="inTitle" maxlength="40" placeholder="오프닝·화면 구석에 표시돼요" autocomplete="off"></label>
-      <label>아티스트<input id="inArtist" maxlength="40" placeholder="구간 제목에 이름이 없으면 이 이름이 표시돼요" autocomplete="off"></label>
+      <label>곡 제목<input id="inTitle" maxlength="40" placeholder="비워 두면 음원 파일 이름을 써요" autocomplete="off"></label>
+      <label>아티스트<input id="inArtist" maxlength="40" placeholder="비워 두면 영상에 표시하지 않아요" autocomplete="off"></label>
       <label>피처링 (선택)<input id="inFeat" maxlength="40" placeholder="없으면 비워 두기" autocomplete="off"></label>
     </div>
   </div></section>
@@ -382,11 +386,14 @@ Outro
 마지막 줄은 천천히
 흩어지며 사라져요`;
 
+/* section headers: "Verse 1", "[Chorus]", "Chorus:", "Verse 2 - name", "후렴", "Pre-Chorus", "Hook" …
+   pre-chorus is its own type (builds into the chorus, verse-level energy); hook is chorus-level but keeps its own label */
 function parseHeader(s){
-  const m=s.replace(/^\[|\]$/g,'').trim().match(/^(pre-?chorus|intro|outro|verse|chorus|hook|bridge|인트로|아웃트로|벌스|후렴|훅|브릿지)\s*(\d*)\s*(?:[-–—:|]\s*(.+?)|\((.+?)\))?\s*$/i);
+  const m=s.replace(/^\[|\]$/g,'').trim().replace(/\s*[:：]$/,'')
+    .match(/^(pre[-\s]?chorus|프리\s?코러스|intro|outro|verse|chorus|hook|bridge|인트로|아웃트로|벌스|후렴|코러스|훅|브릿지|브리지)\s*(\d*)\s*(?:[-–—:：|]\s*(.+?)|\((.+?)\))?\s*$/i);
   if(!m)return null;const k=m[1].toLowerCase();
-  const type=/intro|인트로/.test(k)?'intro':/outro|아웃트로/.test(k)?'outro':/chorus|hook|후렴|훅/.test(k)?'chorus':/bridge|브릿지/.test(k)?'bridge':'verse';
-  return {type,num:m[2]||'',artist:(m[3]||m[4]||'').trim()};
+  const type=/^pre|프리/.test(k)?'pre':/intro|인트로/.test(k)?'intro':/outro|아웃트로/.test(k)?'outro':/chorus|hook|후렴|코러스|훅/.test(k)?'chorus':/bridge|브릿지|브리지/.test(k)?'bridge':'verse';
+  return {type,name:/hook|훅/.test(k)?'HOOK':'',num:m[2]||'',artist:(m[3]||m[4]||'').trim()};
 }
 function parseLine(raw){
   const adlibs=[];const s=raw.replace(/\(([^)]*)\)/g,(m,a)=>{if(a.trim())adlibs.push(a.trim());return ' '});
@@ -430,7 +437,7 @@ function computeSlots(secs){
 }
 
 let SECS=[],LINES=[],IMPACTS=[],IMPACT_T=[],overrides={},lyricsText='',usingDemo=true,userMarked=false;
-function secLabel(s){return {intro:'INTRO',outro:'OUTRO',chorus:'CHORUS',bridge:'BRIDGE',verse:'VERSE'}[s.type]+(s.num?' '+s.num:'')}
+function secLabel(s){return (s.name||{intro:'INTRO',outro:'OUTRO',chorus:'CHORUS',bridge:'BRIDGE',verse:'VERSE',pre:'PRE-CHORUS'}[s.type])+(s.num?' '+s.num:'')}
 function build(){
   usingDemo=!lyricsText.trim();
   const secs=parseLyrics(usingDemo?DEMO:lyricsText);
@@ -439,12 +446,15 @@ function build(){
   SECS=[];LINES=[];let vk=0;
   secs.forEach((s,si)=>{
     const A=barT(slots[si][0]),B=barT(slots[si][1]);
-    const role=s.type==='intro'?'intro':s.type==='chorus'?'chorus':s.type==='outro'?'outro':s.type==='bridge'?'bridge':(vk++%2===0?'verseA':'verseB');
+    const role=s.type==='intro'?'intro':s.type==='chorus'?'chorus':s.type==='outro'?'outro':s.type==='bridge'?'bridge':s.type==='pre'?'verseB':(vk++%2===0?'verseA':'verseB');
     const sec={type:s.type,role,label:secLabel(s),artist:s.artist,start:A,end:B,idx:si,intensity:null,mood:''};
     SECS.push(sec);
     const wts=s.lines.map(l=>(s.type==='intro'||s.type==='outro')?1:1+Array.from(l.text.replace(/\s/g,'')).length*0.16);
+    /* a line's natural length is ~1–3.5 bars; when the slot is much longer than that (only part of the lyrics pasted),
+       pack the lines from the slot start instead of scattering them with long empty gaps — the rest becomes an interlude */
+    const nat=s.lines.reduce((a,l)=>a+BAR*clamp(0.75+Array.from(l.text.replace(/\s/g,'')).length*0.09,1,3.5),0),span=Math.min(B-A,nat*1.4);
     const sum=wts.reduce((a,b)=>a+b,0);let cum=0;
-    s.lines.forEach((l,i)=>{let st=A+(B-A)*cum/sum;cum+=wts[i];st=T0+Math.round((st-T0)/BEAT)*BEAT;LINES.push({...l,def:st,sec,li:i})});
+    s.lines.forEach((l,i)=>{let st=A+span*cum/sum;cum+=wts[i];st=T0+Math.round((st-T0)/BEAT)*BEAT;LINES.push({...l,def:st,sec,li:i})});
   });
   loadOverrides();applyTimes();
 }
@@ -748,6 +758,7 @@ const wordRole=(w,role)=>(DIR.motion.hand&&w.emph&&role==='d')?'h':role;
 /* layout: wraps words into rows that fit maxW/maxH, emphasized words larger */
 function layout(L,key,maxW,maxH,maxRows,basePx,role='d',upper=true,emScale=1.28){
   const k=key+W+DIR_KEY;if(L._c[k])return L._c[k];
+  if(H>W&&maxRows>=3)maxRows+=2;            // portrait has height to spare: more rows → bigger, readable type
   let px=basePx,res;
   for(let it=0;it<44;it++){
     const items=L.words.map((w,i)=>{const rr=wordRole(w,role),hs=rr==='h'?1.25:1;const size=px*hs*(w.emph?(w.emph>1?emScale*1.1:emScale):1);setFont(size,rr);
@@ -824,7 +835,7 @@ function mStack(L,t,pal,ex){
       setFont(16*U,'m');ctx.fillStyle=pal.fg;A(al*0.55);ctx.fillText(pad2(k+1),right?x-40*U:x+it.w*e+18*U,y+h*0.22)}
     y+=h});
   A(0.5*(1-ex));ctx.translate(right?60*U:W-60*U,H*0.5);ctx.rotate(-Math.PI/2);setFont(15*U,'m');ctx.textAlign='center';ctx.fillStyle=pal.fg;
-  ctx.fillText(`L.${pad3(L.gi+1)} — ${L.sec.label} — ${secArtist(L.sec)}`,0,0);
+  ctx.fillText([`L.${pad3(L.gi+1)}`,L.sec.label,secArtist(L.sec)].filter(Boolean).join(' — '),0,0);
   ctx.restore();
 }
 function mCross(L,t,pal,ex){
@@ -1158,8 +1169,9 @@ function chapter(sec,pal,p){
   if(p>2.2||p<0)return;const a=p<0.25?eOutExpo(p/0.25):p>1.8?1-(p-1.8)/0.4:1;const num=pad2(sec.idx+1);const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
   ctx.save();ctx.globalAlpha=a;
   if(DIR.trans==='slit'||DIR.trans==='sweep'||DIR.trans==='circle'){setFont(H*(W>H?0.26:0.14),'d');ctx.textBaseline='alphabetic';ctx.textAlign='left';ctx.strokeStyle=pal.ac;ctx.lineWidth=2*U;
-    const x=W*0.06-(1-a)*60*U,y=H*0.9;ctx.strokeText(num,x,y);const nw=ctx.measureText(num).width;setFont(20*U,'m');ctx.fillStyle=pal.fg;ctx.fillText(sec.label+(sec.mood?' · '+sec.mood:''),x+nw+24*U,y-36*U);ctx.globalAlpha=a*0.6;ctx.fillText(secArtist(sec),x+nw+24*U,y-8*U)}
-  else{const role=DIR.motion.hand?'h':'s';setFont((role==='h'?34:20)*U,role);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=pal.fg;const y=H-lb-70*U;
+    const x=W*0.06-(1-a)*60*U,y=W>H?H*0.9:H*0.78;   // portrait: keep clear of Shorts/Reels caption area
+   ctx.strokeText(num,x,y);const nw=ctx.measureText(num).width;setFont(20*U,'m');ctx.fillStyle=pal.fg;ctx.fillText(sec.label+(sec.mood?' · '+sec.mood:''),x+nw+24*U,y-36*U);ctx.globalAlpha=a*0.6;ctx.fillText(secArtist(sec),x+nw+24*U,y-8*U)}
+  else{const role=DIR.motion.hand?'h':'s';setFont((role==='h'?34:20)*U,role);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=pal.fg;const y=W>H?H-lb-70*U:H*0.8;
     const txt=`${num}  ·  ${sec.label}${sec.mood?'  ·  '+sec.mood:''}`;ctx.fillText(txt,W/2,y);const tw=ctx.measureText(txt).width;ctx.fillStyle=pal.ac;ctx.fillRect(W/2-tw/2-20*U-40*U*a,y,40*U*a,1.5*U);ctx.fillRect(W/2+tw/2+20*U,y,40*U*a,1.5*U)}
   ctx.restore();
 }
@@ -1187,7 +1199,7 @@ function titleSlam(t,end){
   ctx.save();ctx.strokeStyle=hexA(pal.fg,0.14);ctx.lineWidth=1*U;
   for(let i=1;i<12;i++){const p=eOutExpo(clamp((t-0.3-i*0.08)/1.8)),x=W*i/12;ctx.beginPath();ctx.moveTo(x,H/2-H/2*p);ctx.lineTo(x,H/2+H/2*p);ctx.stroke()}
   for(let j=1;j<6;j++){const p=eOutExpo(clamp((t-0.9-j*0.1)/1.8)),y=H*j/6;ctx.beginPath();ctx.moveTo(W/2-W/2*p,y);ctx.lineTo(W/2+W/2*p,y);ctx.stroke()}ctx.restore();
-  const title=metaTitle(),art=metaArtist(),feat=metaFeat(),cut=x=>x.length>26?x.slice(0,25)+'…':x;
+  const title=titleText(),art=metaArtist(),feat=metaFeat(),cut=x=>x.length>26?x.slice(0,25)+'…':x;
   const labs=[[cut(art),0.07,0.1],[feat?cut('FEAT. '+feat):'',0.07,0.135],[cut('TRACK — '+title),0.6,0.1],[`${Math.round(SONG.bpm)} BPM · ${DIR.name} · ${NB} BARS`,0.6,0.135],['FAN-MADE KINETIC LYRIC MOTION',0.07,0.87],['00 — OPENING',0.6,0.87]].filter(x=>x[0]);
   setFont(18*U,'m');ctx.fillStyle=pal.fg;ctx.textBaseline='top';ctx.textAlign='left';const ls=Math.min(0.45,end/16);
   labs.forEach(([q,x,y],i)=>{const st=0.3+i*ls,nn=Math.floor(clamp((t-st)/Math.min(0.5,end/10))*q.length);if(nn<=0)return;ctx.globalAlpha=0.7;ctx.fillText(q.slice(0,nn)+(nn<q.length&&(t*8|0)%2?'▌':''),W*x,H*y)});ctx.globalAlpha=1;
@@ -1209,7 +1221,7 @@ function titleSlam(t,end){
   return pal;
 }
 function titleElegant(t,end){
-  const pal=titleBase(t,end),title=metaTitle(),art=metaArtist(),feat=metaFeat();const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
+  const pal=titleBase(t,end),title=titleText(),art=metaArtist(),feat=metaFeat();const lb=DIR.fx.lbox?H*DIR.fx.lbox:0;
   const role=DIR_KEY==='lofi'?'s':'d';const cs=Array.from(title);setFont(100,role);const w100=ctx.measureText(title).width||1;const px=Math.min(H*0.2,100*W*0.62/w100);setFont(px,role);
   const cw=cs.map(c=>ctx.measureText(c).width),sumw=cw.reduce((a,b)=>a+b,0);
   const p=clamp(t/(end*0.85)),sp=px*(0.65*(1-E.outCubic(p))+0.12),total=sumw+sp*(cs.length-1);const out=clamp((t-(end-0.9))/0.9);
@@ -1217,15 +1229,23 @@ function titleElegant(t,end){
   cs.forEach((c,i)=>{const a=clamp((t-0.4-i*Math.min(0.18,end*0.4/cs.length))/1.2);ctx.globalAlpha=(1-out)*E.outCubic(a);ctx.fillStyle=pal.fg;ctx.fillText(c,x,y+(1-E.outCubic(a))*20*U);x+=cw[i]+sp});
   const rl=E.outExpo(clamp((t-0.8)/2.2))*(total+80*U);ctx.globalAlpha=(1-out)*0.8;ctx.fillStyle=pal.ac;ctx.fillRect(W/2-rl/2,y-px*0.85,rl,1.5*U);ctx.fillRect(W/2-rl/2,y+px*0.8,rl,1.5*U);
   const ca=clamp((t-1.6)/1.2)*(1-out);setFont(19*U,'m');ctx.textAlign='center';ctx.globalAlpha=ca*0.85;ctx.fillStyle=pal.fg;
-  ctx.fillText(art+(feat?'  ·  FEAT. '+feat:''),W/2,y+px*0.8+44*U);ctx.globalAlpha=ca*0.45;ctx.fillText(`${DIR.name} · ${Math.round(SONG.bpm)} BPM`,W/2,y-px*0.85-36*U);
+  ctx.fillText(credit('  ·  '),W/2,y+px*0.8+44*U);ctx.globalAlpha=ca*0.45;ctx.fillText(`${DIR.name} · ${Math.round(SONG.bpm)} BPM`,W/2,y-px*0.85-36*U);
   ctx.restore();return pal;
 }
 function drawEnd(t,st){
   const sec={role:'outro',idx:SECS.length,label:'END',artist:'',firstStart:st,lastEnd:st+1};const pal=roleOf(sec).pal(sec,t,{li:0});drawBG(sec,pal,t,t,{text:'',words:[]});
   const a=clamp((t-st)/1.2);ctx.save();ctx.globalAlpha=a;ctx.textAlign='center';ctx.textBaseline='middle';
-  const title=metaTitle();setFont(100,'d');const w100=ctx.measureText(title).width||1;const px=Math.min(W*0.08,H*0.14,100*W*0.8/w100);setFont(px,'d');ctx.strokeStyle=pal.fg;ctx.lineWidth=2*U;ctx.strokeText(title,W/2,H/2-px*0.2);
-  const feat=metaFeat();setFont(20*U,'m');ctx.fillStyle=pal.ac;ctx.fillText(metaArtist()+(feat?' — FEAT. '+feat:''),W/2,H/2+px*0.6);ctx.globalAlpha=a*0.45;ctx.fillStyle=pal.fg;ctx.fillText('FAN-MADE KINETIC LYRIC MOTION',W/2,H/2+px*0.6+34*U);ctx.restore();
+  const title=titleText();setFont(100,'d');const w100=ctx.measureText(title).width||1;const px=Math.min(W*0.08,H*0.14,100*W*0.8/w100);setFont(px,'d');ctx.strokeStyle=pal.fg;ctx.lineWidth=2*U;ctx.strokeText(title,W/2,H/2-px*0.2);
+  setFont(20*U,'m');ctx.fillStyle=pal.ac;ctx.fillText(credit(' — '),W/2,H/2+px*0.6);ctx.globalAlpha=a*0.45;ctx.fillStyle=pal.fg;ctx.fillText('FAN-MADE KINETIC LYRIC MOTION',W/2,H/2+px*0.6+34*U);ctx.restore();
   return pal;
+}
+/* gaps between lines (instrumental breaks, partial lyrics): a slow outline of what comes next instead of an empty screen */
+function drawInterlude(tl,gs,nx,pal){
+  const ge=nx.start,a=Math.min(clamp((tl-gs)/0.8),clamp((ge-0.3-tl)/0.6))*(0.2+K*0.14);if(a<=0.01)return;
+  const tx=UP(nx.li===0?nx.sec.label:(metaTitle()||nx.sec.label));setFont(100,'d');const w=ctx.measureText(tx).width||1,px=Math.min(H*0.26,100*W*0.84/w);
+  ctx.save();ctx.translate(W/2,H/2);ctx.scale(1+K*0.025,1+K*0.025);setFont(px,'d');ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.globalAlpha=a;ctx.strokeStyle=pal.ac2||pal.ac;ctx.lineWidth=2*U;ctx.strokeText(tx,0,0);
+  ctx.globalAlpha=Math.min(1,a*2.2);ctx.fillStyle=pal.fg;ctx.fillRect(-W*0.15,px*0.62,W*0.3*clamp((tl-gs)/(ge-gs)),2*U);ctx.restore();
 }
 /* ---------- main frame ---------- */
 function frame(t){
@@ -1242,12 +1262,16 @@ function frame(t){
     const imp=impactNow(tl),sh=DIR.motion.shake*INTENSITY;
     const shake=(K*3+imp.e*(imp.lvl>1?26:9))*U*sh,r=rnd((t*30)|0);
     const drift=(DIR_KEY==='cinematic'||DIR_KEY==='lofi'||DIR_KEY==='editorial')?clamp((tl-L.start)/Math.max(0.5,L.end-L.start))*0.035:0;
-    ctx.save();ctx.translate(W/2+(r()-0.5)*shake*2,H/2+(r()-0.5)*shake*2);const z=1+(K*0.012+imp.e*0.02)*sh+drift;ctx.scale(z,z);ctx.translate(-W/2,-H/2);
+    /* portrait: shrink the lyric layer slightly and lift it so it sits inside the Shorts/Reels safe area */
+    const pv=W>H,cy=pv?H*0.465:H/2,z=(1+(K*0.012+imp.e*0.02)*sh+drift)*(pv?0.9:1);
+    ctx.save();ctx.translate(W/2+(r()-0.5)*shake*2,cy+(r()-0.5)*shake*2);ctx.scale(z,z);ctx.translate(-W/2,-H/2);
     if(imp.e>0.02)drawImpactBack(imp,pal);
     const P=LINES[ci-1];
     if(P){const x=(tl-L.start)/exitDur(P.mode);if(x<1&&P.end>=L.start-0.01)drawLine(P,tl,paletteFor(P.sec,tl,P),clamp(x))}
     const ex=tl>L.end?(tl-L.end)/exitDur(L.mode):0;if(ex<1)drawLine(L,tl,pal,clamp(ex));
-    drawAdlibs(L,tl,pal);ctx.restore();GA=1;
+    drawAdlibs(L,tl,pal);
+    const nx=LINES[ci+1],gs=L.end+exitDur(L.mode);if(nx&&nx.start-gs>2.5&&tl>gs&&tl<nx.start)drawInterlude(tl,gs,nx,pal);
+    ctx.restore();GA=1;
     const ss=sec.firstStart;if(sec.idx>0&&tl>=ss)transition(sec,pal,(tl-ss)/0.5,tl);
     chapter(sec,pal,tl-ss);
     const gl=DIR.motion.glitch*INTENSITY;
@@ -1434,11 +1458,16 @@ async function fastExport(plan,file,onProg){
    80 · APP — metadata, analysis UI, direction picker, playback,
         tap-sync, recording, init
    ============================================================ */
-function metaTitle(){return (($('inTitle')&&$('inTitle').value.trim())||(PRESET&&PRESET.title)||'UNTITLED').toUpperCase()}
-function metaArtist(){return (($('inArtist')&&$('inArtist').value.trim())||(PRESET&&PRESET.artist)||'ARTIST').toUpperCase()}
+/* empty fields stay empty on screen: title falls back to the audio file name, artist is simply hidden */
+let AUDIO_TITLE='';
+const fileTitle=n=>n.replace(/\.[^.]+$/,'').replace(/^\s*\d{1,3}\s*[-._)]?\s+/,'').replace(/_+/g,' ').replace(/\s+/g,' ').trim().slice(0,40);
+function metaTitle(){return (($('inTitle')&&$('inTitle').value.trim())||(PRESET&&PRESET.title)||AUDIO_TITLE||'').toUpperCase()}
+function titleText(){return metaTitle()||'LYRIC MOTION'}
+function metaArtist(){return (($('inArtist')&&$('inArtist').value.trim())||(PRESET&&PRESET.artist)||'').toUpperCase()}
+function credit(sep){const a=metaArtist(),f=metaFeat();return [a,f?'FEAT. '+f:''].filter(Boolean).join(sep)}
 function metaFeat(){return (($('inFeat')&&$('inFeat').value.trim())||(PRESET&&PRESET.feat)||'').toUpperCase()}
 function secArtist(sec){return sec.artist?sec.artist.toUpperCase():metaArtist()}
-function saveMeta(){lsSet('rz_meta',JSON.stringify({t:$('inTitle').value,a:$('inArtist').value,f:$('inFeat').value}));const tt=metaTitle();$('hTitle').textContent=tt==='UNTITLED'?'LYRIC MOTION':tt}
+function saveMeta(){lsSet('rz_meta',JSON.stringify({t:$('inTitle').value,a:$('inArtist').value,f:$('inFeat').value}));$('hTitle').textContent=titleText()}
 
 /* ---------- direction picker ---------- */
 let DIR_LOCK=lsGet('rz_dir_lock','0')==='1';
@@ -1483,12 +1512,14 @@ let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer
 function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
 function setRate(r){if(r===RATE)return;if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
 function seekTo(s){s=clamp(s,0,SONG_END);if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
-function startPlay(){if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
+function startPlay(){hideEnd();if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
 function pausePlay(){if(hasAudio)au.pause();else clockT=now();playing=false}
 function ensureGraph(){if(actx)return;try{const AC=window.AudioContext||window.webkitAudioContext;actx=new AC();const src=actx.createMediaElementSource(au);src.connect(actx.destination);if(actx.createMediaStreamDestination){msDest=actx.createMediaStreamDestination();src.connect(msDest)}}catch(e){actx=null;msDest=null}}
-function onEnded(){playing=false;if(recording)stopRec();if(syncMode)endSync();showSetup()}
+function onEnded(){playing=false;if(recording){stopRec();showSetup();return}if(syncMode){endSync();showSetup();return}showEnd()}   // plain playback ends on replay/save/settings, not the long form
+function showEnd(){$('hud').classList.add('hidden');$('endBar').classList.remove('hidden')}
+function hideEnd(){$('endBar').classList.add('hidden')}
 au.addEventListener('ended',onEnded);au.addEventListener('pause',()=>{if(!au.ended)playing=false});au.addEventListener('play',()=>{playing=true});
-function showSetup(){$('setup').classList.remove('hidden');$('hud').classList.add('hidden')}
+function showSetup(){hideEnd();$('setup').classList.remove('hidden');$('hud').classList.add('hidden')}
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?'녹화 중지':'설정'}
@@ -1501,7 +1532,7 @@ $('lyrics').addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(()=>{
 $('bDemo').onclick=()=>{$('lyrics').value=DEMO;lyricsText=DEMO;lyricsChanged()};
 $('bClear').onclick=()=>{$('lyrics').value='';lyricsText='';lyricsChanged()};
 $('fLyr').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(s=>{$('lyrics').value=s;lyricsText=s;lyricsChanged()})};
-$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;
+$('fAudio').onchange=async e=>{const f=e.target.files[0];if(!f)return;au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);saveMeta();
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · 준비됨`;
   const key='rz_an4_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML='<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 (몇 초 걸려요)';$('bpmRow').classList.add('hidden');
@@ -1519,6 +1550,9 @@ $('hMenu').onclick=e=>{e.stopPropagation();if(recording){stopRec();pausePlay()}e
 $('hFull').onclick=e=>{e.stopPropagation();$('hud').classList.add('fade')};
 $('hPlay').onclick=e=>{e.stopPropagation();if(playing)pausePlay();else startPlay();pokeHud()};
 $('seek').oninput=e=>{seekTo(+e.target.value);pokeHud()};
+$('endReplay').onclick=e=>{e.stopPropagation();seekTo(0);startPlay();pokeHud()};
+$('endSave').onclick=e=>{e.stopPropagation();showSetup();$('bRec').scrollIntoView({block:'center'});$('bRec').click()};
+$('endSetup').onclick=e=>{e.stopPropagation();showSetup()};
 $('stage').addEventListener('pointerdown',e=>{if(syncMode){e.preventDefault();syncTap();return}if($('setup').classList.contains('hidden'))pokeHud()});
 addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))return;
   if(syncMode&&(e.code==='Backspace'||e.code==='KeyZ')){e.preventDefault();syncUndo();return}
@@ -1570,7 +1604,7 @@ let PLAN_P=null,WAKE=null,SAVE_URL=null;
 const getPlan=()=>PLAN_P||(PLAN_P=exportPlan().catch(()=>null));   // cached so the click handler stays inside the user gesture
 async function wake(on){try{if(on&&!WAKE&&navigator.wakeLock){WAKE=await navigator.wakeLock.request('screen');WAKE.addEventListener('release',()=>{WAKE=null})}
   else if(!on&&WAKE){const w=WAKE;WAKE=null;await w.release()}}catch(e){WAKE=null}}
-function outName(ext){const slug=(metaTitle()==='UNTITLED'?'lyric_motion':metaTitle()).toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
+function outName(ext){const slug=(metaTitle()||'lyric_motion').toLowerCase().replace(/[^0-9a-z가-힣]+/g,'_').replace(/^_|_$/g,'')||'lyric_motion';
   return `${slug}_${DIR_KEY}_${aspect.replace(':','x')}.${ext}`}
 function offerSave(blob){
   const out=$('recOut'),type=blob.type||'video/webm',ext=type.includes('mp4')?'mp4':'webm',name=outName(ext);

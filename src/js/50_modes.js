@@ -46,7 +46,7 @@ function mStack(L,t,pal,ex){
       setFont(16*U,'m');ctx.fillStyle=pal.fg;A(al*0.55);ctx.fillText(pad2(k+1),right?x-40*U:x+it.w*e+18*U,y+h*0.22)}
     y+=h});
   A(0.5*(1-ex));ctx.translate(right?60*U:W-60*U,H*0.5);ctx.rotate(-Math.PI/2);setFont(15*U,'m');ctx.textAlign='center';ctx.fillStyle=pal.fg;
-  ctx.fillText(`L.${pad3(L.gi+1)} — ${L.sec.label} — ${secArtist(L.sec)}`,0,0);
+  ctx.fillText([`L.${pad3(L.gi+1)}`,L.sec.label,secArtist(L.sec)].filter(Boolean).join(' — '),0,0);
   ctx.restore();
 }
 function mCross(L,t,pal,ex){

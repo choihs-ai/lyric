@@ -37,11 +37,14 @@ Outro
 마지막 줄은 천천히
 흩어지며 사라져요`;
 
+/* section headers: "Verse 1", "[Chorus]", "Chorus:", "Verse 2 - name", "후렴", "Pre-Chorus", "Hook" …
+   pre-chorus is its own type (builds into the chorus, verse-level energy); hook is chorus-level but keeps its own label */
 function parseHeader(s){
-  const m=s.replace(/^\[|\]$/g,'').trim().match(/^(pre-?chorus|intro|outro|verse|chorus|hook|bridge|인트로|아웃트로|벌스|후렴|훅|브릿지)\s*(\d*)\s*(?:[-–—:|]\s*(.+?)|\((.+?)\))?\s*$/i);
+  const m=s.replace(/^\[|\]$/g,'').trim().replace(/\s*[:：]$/,'')
+    .match(/^(pre[-\s]?chorus|프리\s?코러스|intro|outro|verse|chorus|hook|bridge|인트로|아웃트로|벌스|후렴|코러스|훅|브릿지|브리지)\s*(\d*)\s*(?:[-–—:：|]\s*(.+?)|\((.+?)\))?\s*$/i);
   if(!m)return null;const k=m[1].toLowerCase();
-  const type=/intro|인트로/.test(k)?'intro':/outro|아웃트로/.test(k)?'outro':/chorus|hook|후렴|훅/.test(k)?'chorus':/bridge|브릿지/.test(k)?'bridge':'verse';
-  return {type,num:m[2]||'',artist:(m[3]||m[4]||'').trim()};
+  const type=/^pre|프리/.test(k)?'pre':/intro|인트로/.test(k)?'intro':/outro|아웃트로/.test(k)?'outro':/chorus|hook|후렴|코러스|훅/.test(k)?'chorus':/bridge|브릿지|브리지/.test(k)?'bridge':'verse';
+  return {type,name:/hook|훅/.test(k)?'HOOK':'',num:m[2]||'',artist:(m[3]||m[4]||'').trim()};
 }
 function parseLine(raw){
   const adlibs=[];const s=raw.replace(/\(([^)]*)\)/g,(m,a)=>{if(a.trim())adlibs.push(a.trim());return ' '});
@@ -85,7 +88,7 @@ function computeSlots(secs){
 }
 
 let SECS=[],LINES=[],IMPACTS=[],IMPACT_T=[],overrides={},lyricsText='',usingDemo=true,userMarked=false;
-function secLabel(s){return {intro:'INTRO',outro:'OUTRO',chorus:'CHORUS',bridge:'BRIDGE',verse:'VERSE'}[s.type]+(s.num?' '+s.num:'')}
+function secLabel(s){return (s.name||{intro:'INTRO',outro:'OUTRO',chorus:'CHORUS',bridge:'BRIDGE',verse:'VERSE',pre:'PRE-CHORUS'}[s.type])+(s.num?' '+s.num:'')}
 function build(){
   usingDemo=!lyricsText.trim();
   const secs=parseLyrics(usingDemo?DEMO:lyricsText);
@@ -94,12 +97,15 @@ function build(){
   SECS=[];LINES=[];let vk=0;
   secs.forEach((s,si)=>{
     const A=barT(slots[si][0]),B=barT(slots[si][1]);
-    const role=s.type==='intro'?'intro':s.type==='chorus'?'chorus':s.type==='outro'?'outro':s.type==='bridge'?'bridge':(vk++%2===0?'verseA':'verseB');
+    const role=s.type==='intro'?'intro':s.type==='chorus'?'chorus':s.type==='outro'?'outro':s.type==='bridge'?'bridge':s.type==='pre'?'verseB':(vk++%2===0?'verseA':'verseB');
     const sec={type:s.type,role,label:secLabel(s),artist:s.artist,start:A,end:B,idx:si,intensity:null,mood:''};
     SECS.push(sec);
     const wts=s.lines.map(l=>(s.type==='intro'||s.type==='outro')?1:1+Array.from(l.text.replace(/\s/g,'')).length*0.16);
+    /* a line's natural length is ~1–3.5 bars; when the slot is much longer than that (only part of the lyrics pasted),
+       pack the lines from the slot start instead of scattering them with long empty gaps — the rest becomes an interlude */
+    const nat=s.lines.reduce((a,l)=>a+BAR*clamp(0.75+Array.from(l.text.replace(/\s/g,'')).length*0.09,1,3.5),0),span=Math.min(B-A,nat*1.4);
     const sum=wts.reduce((a,b)=>a+b,0);let cum=0;
-    s.lines.forEach((l,i)=>{let st=A+(B-A)*cum/sum;cum+=wts[i];st=T0+Math.round((st-T0)/BEAT)*BEAT;LINES.push({...l,def:st,sec,li:i})});
+    s.lines.forEach((l,i)=>{let st=A+span*cum/sum;cum+=wts[i];st=T0+Math.round((st-T0)/BEAT)*BEAT;LINES.push({...l,def:st,sec,li:i})});
   });
   loadOverrides();applyTimes();
 }
