@@ -54,11 +54,11 @@ function refreshInfo(){
 /* ---------- playback ---------- */
 const au=$('au');let hasAudio=false,playing=false,clock0=0,clockT=0,actx=null,msDest=null;
 let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0,RATE=1,AUDIO_FILE=null;
-function now(){if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
-function setRate(r){if(r===RATE)return;if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
-function seekTo(s){s=clamp(s,0,SONG_END);if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
-function startPlay(){hideEnd();if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
-function pausePlay(){if(hasAudio)au.pause();else clockT=now();playing=false}
+function now(){if(YT_ON)return ytNow();if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
+function setRate(r){if(r===RATE)return;if(YT_ON){RATE=r;try{YTP.setPlaybackRate(r)}catch(e){}return}if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
+function seekTo(s){s=clamp(s,0,SONG_END);if(YT_ON){try{YTP.seekTo(s,true)}catch(e){}ytLast={rep:-1,wall:0,out:null};return}if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
+function startPlay(){hideEnd();if(YT_ON){try{YTP.playVideo()}catch(e){}return Promise.resolve()}if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
+function pausePlay(){if(YT_ON){try{YTP.pauseVideo()}catch(e){}playing=false;return}if(hasAudio)au.pause();else clockT=now();playing=false}
 function ensureGraph(){if(actx)return;try{const AC=window.AudioContext||window.webkitAudioContext;actx=new AC();const src=actx.createMediaElementSource(au);src.connect(actx.destination);if(actx.createMediaStreamDestination){msDest=actx.createMediaStreamDestination();src.connect(msDest)}}catch(e){actx=null;msDest=null}}
 function onEnded(){playing=false;if(recording){stopRec();showSetup();return}if(syncMode){endSync();showSetup();return}showEnd()}   // plain playback ends on replay/save/settings, not the long form
 function showEnd(){$('hud').classList.add('hidden');$('endBar').classList.remove('hidden')}
@@ -68,7 +68,7 @@ function showSetup(){hideEnd();$('setup').classList.remove('hidden');$('hud').cl
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?T('녹화 중지','Stop rec'):T('설정','Settings')}
-function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
+function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&!YT_ON&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
 
 /* ---------- inputs ---------- */
 let deb=0;
@@ -81,7 +81,7 @@ $('fAudio').onchange=e=>{const f=e.target.files[0];if(f)loadAudioFile(f,true)};
 async function loadAudioFile(f,store){
   if(au.src)try{URL.revokeObjectURL(au.src)}catch(x){}
   au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);
-  if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
+  if(YT_ON||YTP)ytClose();if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent='';$('ytMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · ${T('준비됨','ready')}`;
   const key='rz_an6_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML=T('<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 · 보컬 (몇 초 걸려요)','<b>Analysing…</b> tempo · kicks · snares · sections · mood · vocals (a few seconds)');$('bpmRow').classList.add('hidden');
@@ -89,17 +89,28 @@ async function loadAudioFile(f,store){
   applyAnalysis(an)}
 /* ---------- no audio file: length + tempo, silent export ---------- */
 let MANUAL=null,tapT=[];
-function useManual(m,quiet){MANUAL=m;lsSet('rz_manual',JSON.stringify(m));
+function useManual(m,quiet){MANUAL=m;lsSet('rz_manual',JSON.stringify(m));if(!m.yt&&(YT_ON||YTP))ytClose();
   if(hasAudio){au.pause();au.removeAttribute('src');au.load();hasAudio=false;AUDIO_FILE=null;AUDIO_TITLE='';$('audioName').textContent=T('음원 없음 · 소리 없는 영상으로 만들어요','No audio · making a silent video');projStoreAudio(null)}
   playing=false;clockT=0;setSong(manualSong(m.dur,m.bpm));build();autoPick();refreshInfo();saveMeta();$('bpmRow').classList.add('hidden');
-  $('anInfo').innerHTML=`<b>${T('음원 없이 만들기','No audio file')}</b> · ${fmtT(m.dur).replace(/\.\d+$/,'')} · ${m.bpm} BPM`;
+  $('anInfo').innerHTML=`<b>${m.yt?T('유튜브로 만들기','From YouTube'):T('음원 없이 만들기','No audio file')}</b> · ${fmtT(m.dur).replace(/\.\d+$/,'')} · ${m.bpm} BPM`;
+  if(m.yt)return;
   if(!quiet)$('manualMsg').innerHTML=T('준비됐어요. <b>05 싱크</b>에서 다른 앱으로 노래를 틀고 탭 싱크하세요. 저장한 영상은 소리가 없으니, 릴스·틱톡·쇼츠 편집 화면에서 같은 곡을 넣고 곡의 처음(0:00)부터 시작하게 맞추세요.','Ready. In <b>05 Sync</b>, play the song in another app and tap along. The saved video is silent — add the same song in the Reels/TikTok/Shorts editor, starting at 0:00.')}
 $('bManual').onclick=()=>{const d=(+$('inMin').value||0)*60+(+$('inSec').value||0),bp=+$('inBpm').value||120;
   if(d<10||d>1200){$('manualMsg').innerHTML=T('<b>곡 길이</b>를 분·초로 넣어 주세요 (10초~20분).','Enter the <b>song length</b> in minutes and seconds (10 s – 20 min).');return}
   useManual({dur:d,bpm:Math.round(clamp(bp,60,200)*10)/10})};
+/* YouTube link: the song plays in the embedded player, which drives the clock (79_youtube) */
+const YT_READY=()=>T('준비됐어요. 노래는 오른쪽 유튜브 플레이어에서 나와요 (⇅로 위아래 옮길 수 있어요). <b>▶ 재생</b>으로 미리 보고, <b>05 싱크</b>에서 탭 싱크하세요. 빠르기(BPM)를 모르면 재생하면서 <b>박자에 맞춰 탭</b>을 눌러 주세요. 저장한 영상은 소리가 없으니 릴스·틱톡·쇼츠 편집 화면에서 같은 곡을 넣고 곡의 처음(0:00)부터 시작하게 맞추세요.',
+  'Ready. The song plays in the YouTube player on the right (⇅ moves it up or down). Preview with <b>▶ Play</b> and tap along in <b>05 Sync</b>. Unsure of the BPM? Press <b>Tap the beat</b> while it plays. The saved video is silent — add the same song in the Reels/TikTok/Shorts editor, starting at 0:00.');
+function openYt(id,quiet){$('ytMsg').innerHTML=quiet?'':T('유튜브 영상을 불러오는 중…','Loading the YouTube video…');
+  return ytOpen(id).then(({dur})=>{const d=Math.round(dur*100)/100;$('inMin').value=Math.floor(d/60);$('inSec').value=Math.round(d%60);
+    useManual({dur:d,bpm:MANUAL&&MANUAL.yt===id?MANUAL.bpm:Math.round(clamp(+$('inBpm').value||120,60,200)*10)/10,yt:id},quiet);$('ytMsg').innerHTML=YT_READY()})
+  .catch(e=>{$('ytMsg').innerHTML='<b>'+esc(e.message)+'</b>'})}
+$('bYt').onclick=()=>{const id=ytId($('inYt').value);if(!id){$('ytMsg').innerHTML=T('<b>유튜브 링크</b>를 붙여 넣어 주세요 (youtube.com/watch?v=…, youtu.be/…, 쇼츠 링크).','Paste a <b>YouTube link</b> (youtube.com/watch?v=…, youtu.be/…, or a Shorts link).');return}openYt(id)};
+/* tempo typed or tapped while in no-audio mode applies right away (keeps the YouTube video) */
+$('inBpm').addEventListener('change',()=>{if(MANUAL&&+$('inBpm').value)useManual({...MANUAL,bpm:Math.round(clamp(+$('inBpm').value,60,200)*10)/10},true)});
 $('bTapBpm').onclick=()=>{const n=performance.now()/1000;if(tapT.length&&n-tapT[tapT.length-1]>2)tapT=[];tapT.push(n);tapT=tapT.slice(-9);
   if(tapT.length<4){$('bTapBpm').textContent=T(`박자에 맞춰 계속 탭 (${tapT.length})`,`Keep tapping (${tapT.length})`);return}
-  const iv=tapT.slice(1).map((t,i)=>t-tapT[i]).sort((a,b)=>a-b),bp=Math.round(60/iv[iv.length>>1]);$('inBpm').value=bp;$('bTapBpm').textContent=T(`${bp} BPM · 계속 탭하면 더 정확해요`,`${bp} BPM · keep tapping to refine`)};
+  const iv=tapT.slice(1).map((t,i)=>t-tapT[i]).sort((a,b)=>a-b),bp=Math.round(60/iv[iv.length>>1]);$('inBpm').value=bp;if(MANUAL)useManual({...MANUAL,bpm:bp},true);$('bTapBpm').textContent=T(`${bp} BPM · 계속 탭하면 더 정확해요`,`${bp} BPM · keep tapping to refine`)};
 $('bBpmDbl').onclick=()=>scaleBpm(2);$('bBpmHalf').onclick=()=>scaleBpm(0.5);
 ['inTitle','inArtist','inFeat'].forEach(id=>$(id).addEventListener('input',()=>{saveMeta();refreshInfo()}));
 document.querySelectorAll('#segAspect button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segAspect button').forEach(x=>x.classList.toggle('on',x===b));setAspect(b.dataset.a);lsSet('rz_aspect',b.dataset.a);PLAN_P=null});
@@ -131,7 +142,7 @@ function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,
   setRate(SLOW?0.75:1);syncShow();
   const L=LINES[from],lead=Math.min(L.start-3,from>0?LINES[from-1].start-0.3:Infinity);   // start a little before the previous line so there's context
   const at=hasAudio||from>0?Math.max(0,lead+OFF):0;seekTo(at);
-  if(hasAudio){startPlay();return}
+  if(hasAudio||YT_ON){startPlay();return}
   /* no audio here: the song plays in another app, so count down and let the user press play there at the same moment */
   let n=3;const tick=()=>{if(!syncMode)return;if(n===0){$('syncInfo').innerHTML='<div class="k">TAP SYNC</div>'+T('지금 재생!','Play now!');startPlay();setTimeout(()=>{if(syncMode)syncShow()},700);return}
     const tt=fmtT(at).replace(/\.\d+$/,'');$('syncInfo').innerHTML=`<div class="k">TAP SYNC · ${n}</div>`+T(`다른 앱에서 노래를 <b>${tt}</b>에 맞춰 두고, 0이 되는 순간 재생하세요`,`Cue the song to <b>${tt}</b> in your music app and press play at 0`);n--;syncCD=setTimeout(tick,1000)};tick()}
@@ -251,7 +262,7 @@ function applyLang(){document.documentElement.lang=LANG;$('bLang').textContent=L
   saveMeta();
   setDirection(DIR_LOCK?lsGet('rz_dir','brutal'):'brutal');
   build();AI_EMPH_ON=lsGet('rz_aiemph',userMarked?'0':'1')==='1';direct();autoPick();loadAI();refreshInfo();refreshAIUI();
-  if(MANUAL)useManual(MANUAL,true);else projRestoreAudio();
+  if(MANUAL){useManual(MANUAL,true);if(MANUAL.yt){$('inYt').value='https://youtu.be/'+MANUAL.yt;openYt(MANUAL.yt,true)}}else projRestoreAudio();
   getPlan().then(p=>{$('expNote').innerHTML=p&&p.a?T('<b>빠른 저장</b> · 재생하지 않고 곡 길이보다 빠르게 MP4로 만들어요.','<b>Fast save</b> · renders an MP4 faster than the song, without playing it.'):T('이 브라우저는 <b>재생하면서 녹화</b>해요. 곡이 끝날 때까지 화면을 켜 두세요.','This browser <b>records while playing</b>. Keep the screen on until the song ends.')});
   loop();
   Object.assign(window,{__frame:t=>frame(t),__setLyrics:s=>{lyricsText=s;build();autoPick();refreshInfo()},__aspect:setAspect,__lines:()=>LINES,

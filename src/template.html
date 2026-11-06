@@ -110,6 +110,12 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
+#ytBox{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:200px;height:200px;z-index:12;background:#000;border:1px solid #3a3632}
+#ytBox.top{bottom:auto;top:calc(env(safe-area-inset-top) + 64px)}
+#ytSlot,#ytBox iframe,#ytPlayer{display:block;width:100%;height:100%;border:0}
+#ytMove{position:absolute;right:-1px;top:-45px;width:48px;padding:0}
+#ytBox.top #ytMove{top:auto;bottom:-45px}
+body.yt #setup{padding-bottom:calc(env(safe-area-inset-bottom) + 300px)}
 #endBar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);z-index:6;width:min(calc(100vw - 32px),520px);
   display:flex;flex-wrap:wrap;gap:8px;padding:12px;background:rgba(7,7,7,.82);border:1px solid #3a3632;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 #endBar .btn{flex:1 1 auto;padding:0 12px;white-space:nowrap}
@@ -125,6 +131,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 </div>
 <div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo" data-en="Undo">되돌리기</button><button class="hbtn" id="syncStop" data-en="Done">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
+<div id="ytBox" class="hidden"><button class="hbtn" id="ytMove" type="button" aria-label="플레이어 위치 옮기기" data-en-al="Move the player">⇅</button><div id="ytSlot"><div id="ytPlayer"></div></div></div>
 <div id="endBar" class="hidden"><button class="btn primary" id="endReplay" data-en="↺ Replay">↺ 다시 보기</button><button class="btn rec" id="endSave" data-en="● Save video">● 영상으로 저장</button><button class="btn ghost" id="endSetup" data-en="Settings">설정</button></div>
 
 <div id="setup">
@@ -148,8 +155,12 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
     <label class="btn"><span data-en="Choose audio file">음원 파일 선택</span><input type="file" id="fAudio" accept="audio/*,.mp3,.m4a,.wav"></label>
     <div class="note" id="audioName" data-en="Nothing chosen yet · previews play silently without one">아직 선택하지 않았어요 · 없으면 무음 미리보기로 재생돼요</div>
     <div class="note" id="anInfo" data-en="Once you choose audio, tempo (BPM), kicks, snares, sections and vocals are analysed right here on this device.">음원을 고르면 박자(BPM)·킥·스네어·구간 경계를 이 기기에서 바로 분석해요.</div>
-    <details class="help" id="noAud"><summary data-en="No audio file?">음원 파일 없이 만들기</summary>
+    <details class="help" id="noAud"><summary data-en="No audio file? Use a YouTube link">음원 파일 없이 만들기 · 유튜브 링크</summary>
       <div class="note" style="margin:0 0 4px" data-en="Works for songs you only stream. Enter the length and tempo to make a &lt;b&gt;silent video&lt;/b&gt;, then add the same song in the Reels/TikTok/Shorts editor.">스트리밍으로만 듣는 곡도 만들 수 있어요. 곡 길이와 빠르기를 넣으면 <b>소리 없는 영상</b>을 만들어요. 노래는 릴스·틱톡·쇼츠 편집 화면에서 같은 곡을 넣으면 돼요.</div>
+      <div class="fields" style="margin-top:8px">
+        <label><span data-en="YouTube link">유튜브 링크</span><span class="row tight"><input id="inYt" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" data-en-ph="https://youtu.be/…"><button class="btn ghost" id="bYt" type="button" data-en="Load">불러오기</button></span></label>
+      </div>
+      <div class="note" id="ytMsg" data-en="The song plays in YouTube's own player here and the lyrics follow it — nothing is downloaded. Or enter the length yourself below.">노래는 이 화면의 유튜브 플레이어에서 재생되고 가사가 그 시간에 맞춰 움직여요 (내려받지 않아요). 아니면 아래에 곡 길이를 직접 넣어도 돼요.</div>
       <div class="fields" style="margin-top:8px">
         <label><span data-en="Song length">곡 길이</span><span class="row tight"><input id="inMin" type="number" inputmode="numeric" min="0" max="20" placeholder="분" data-en-ph="min"><span>:</span><input id="inSec" type="number" inputmode="numeric" min="0" max="59" placeholder="초" data-en-ph="sec"></span></label>
         <label><span data-en="Tempo (BPM)">빠르기 (BPM)</span><span class="row tight"><input id="inBpm" type="number" inputmode="decimal" min="60" max="200" placeholder="모르면 비워 두기 (120)" data-en-ph="leave blank if unsure (120)"><button class="btn ghost" id="bTapBpm" type="button" data-en="Tap the beat">박자에 맞춰 탭</button></span></label>

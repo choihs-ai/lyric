@@ -22,6 +22,8 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
   - `50_modes` 19 kinetic line treatments + motion-blur ghosts · `55_backgrounds` environments
   - `60_render` frame orchestration, titles, transitions, HUD · `70_post` WebGL finishing pass (2D fallback)
   - `75_export` offline MP4 export: renders `frame(t)` per frame, WebCodecs H.264 + AAC (Opus fallback), in-page MP4 muxer
+  - `79_youtube` no-audio mode via an embedded YouTube player (IFrame API) as the playback clock; nothing is downloaded or
+    analysed, saved videos stay silent; the player stays visible (≥200×200, movable)
   - `78_projects` several songs per device: snapshots of the rz_* keys, audio in IndexedDB, JSON export/import
   - `80_app` UI, KO/EN switch (`data-en` attributes in the template), playback, tap-sync (from any line, undo, 0.75×), per-line timing editor, save (fast export → realtime MediaRecorder fallback), init
 - `src/template.html` — markup + CSS; `/*BUNDLE*/` and `/*FONT_CSS*/` placeholders.
