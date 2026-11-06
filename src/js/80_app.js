@@ -83,7 +83,7 @@ async function loadAudioFile(f,store){
   au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);
   if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · ${T('준비됨','ready')}`;
-  const key='rz_an5_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
+  const key='rz_an6_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML=T('<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 · 보컬 (몇 초 걸려요)','<b>Analysing…</b> tempo · kicks · snares · sections · mood · vocals (a few seconds)');$('bpmRow').classList.add('hidden');
     try{an=await analyzeFile(f);lsSet(key,JSON.stringify(an))}catch(err){$('anInfo').innerHTML=T('<b>이 파일은 분석하지 못했어요.</b> 기본 박자로 재생되니 탭 싱크로 맞춰 주세요.','<b>Couldn\'t analyse this file.</b> It plays on a default beat — use tap sync.');return}}
   applyAnalysis(an)}
@@ -122,7 +122,7 @@ addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))retur
 
 /* ---------- tap sync: start from any line, undo, 0.75× mode ----------
    Taps overwrite one line at a time, so stopping half-way keeps every earlier tap and every later line's old value. */
-let SLOW=lsGet('rz_slow','0')==='1',syncHist=[],tapWall=0,LSEL=-1;
+let SLOW=lsGet('rz_slow','0')==='1',SNAP=lsGet('rz_snap','1')==='1',syncHist=[],tapWall=0,LSEL=-1;
 function syncShow(){const L=LINES[syncIdx];
   $('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>${T('다음 줄이 시작될 때 탭','Tap when this line starts')}: <b>${esc(L.text)}</b>`:T('완료!','Done!');
   $('syncUndo').disabled=!syncHist.length}
@@ -137,39 +137,50 @@ function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,
     const tt=fmtT(at).replace(/\.\d+$/,'');$('syncInfo').innerHTML=`<div class="k">TAP SYNC · ${n}</div>`+T(`다른 앱에서 노래를 <b>${tt}</b>에 맞춰 두고, 0이 되는 순간 재생하세요`,`Cue the song to <b>${tt}</b> in your music app and press play at 0`);n--;syncCD=setTimeout(tick,1000)};tick()}
 let syncCD=0;
 function syncTap(){if(syncIdx>=LINES.length||!playing)return;const w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
-  syncHist.push({i:syncIdx,prev:overrides[syncIdx]});overrides[syncIdx]=now()-0.08*RATE-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();
+  let t=now()-0.08*RATE;if(SNAP&&hasAudio)t=snapToVocal(t);   // tap correction: nearest vocal onset within −0.2/+0.12 s
+  syncHist.push({i:syncIdx,prev:overrides[syncIdx],auto:autoSet.has(syncIdx)});overrides[syncIdx]=t-OFF;autoSet.delete(syncIdx);applyTimes();saveOverrides();syncIdx++;syncShow();
   if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
-function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;applyTimes();saveOverrides();
+function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;if(h.auto)autoSet.add(h.i);applyTimes();saveOverrides();
   syncIdx=h.i;syncShow();seekTo(Math.max(0,now()-3));if(!playing)startPlay()}
 function endSync(){clearTimeout(syncCD);syncMode=false;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
 $('bSync').onclick=()=>startSync(0);
-/* auto-sync (25_autosync): replaces all line timings; one-step undo */
+/* auto-sync (25_autosync): lines you tapped or nudged stay as anchors, the rest are fitted between them; one-step undo */
 let AUTO_PREV=null;
 $('bAuto').onclick=()=>{const out=$('autoMsg');
   if(!hasAudio||!SONG.vox){out.innerHTML=T('<b>음원 파일을 넣어야</b> 자동 싱크를 할 수 있어요.','Auto-sync needs an <b>audio file</b>.');return}
-  const r=autoSync();if(!r){out.innerHTML=T('<b>보컬을 충분히 찾지 못했어요.</b> 탭 싱크로 맞춰 주세요.','<b>Not enough vocals found.</b> Use tap sync instead.');return}
-  AUTO_PREV={...overrides};overrides={};r.times.forEach((t,i)=>overrides[i]=t-OFF);applyTimes();saveOverrides();refreshInfo();
-  out.innerHTML=T(`<b>${LINES.length}줄</b>을 보컬이 시작되는 곳에 맞췄어요${SONG.voxSt?'':' (모노 음원이라 정확도가 낮아요)'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄부터 다시 탭하세요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,`Matched <b>${LINES.length} lines</b> to where the vocals start${SONG.voxSt?'':' (mono audio — less accurate)'}. Play it back; fix any wrong line in <b>Fine-tune line timing</b> below, or re-tap from that line. <a href="#" id="autoUndo">Undo auto-sync</a>`);
-  $('autoUndo').onclick=e=>{e.preventDefault();overrides=AUTO_PREV||{};applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
+  const anchors={};Object.keys(overrides).forEach(k=>{const i=+k;if(i<LINES.length&&!autoSet.has(i))anchors[i]=overrides[i]+OFF});
+  const r=autoSync(anchors);if(!r){out.innerHTML=T('<b>보컬을 충분히 찾지 못했어요.</b> 탭 싱크로 맞춰 주세요.','<b>Not enough vocals found.</b> Use tap sync instead.');return}
+  const apply=()=>{AUTO_PREV={o:{...overrides},a:[...autoSet]};
+    r.times.forEach((t,i)=>{if(!(i in anchors)){overrides[i]=t-OFF;autoSet.add(i)}});applyTimes();saveOverrides();refreshInfo();
+    const n=LINES.length-r.anchored,keep=r.anchored?T(` (직접 맞춘 ${r.anchored}줄은 그대로)`,` (your ${r.anchored} set lines kept)`):'';
+    out.innerHTML=T(`<b>${n}줄</b>을 보컬이 시작되는 곳에 맞췄어요${keep}${SONG.voxSt?'':' · 모노 음원이라 정확도가 낮아요'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄을 다시 탭한 뒤 <b>자동 싱크</b>를 한 번 더 누르세요 — 고친 줄을 기준으로 나머지를 다시 맞춰요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,
+      `Matched <b>${n} lines</b> to where the vocals start${keep}${SONG.voxSt?'':' · mono audio, less accurate'}. Play it back; fix a wrong line in <b>Fine-tune line timing</b> or re-tap it, then press <b>Auto-sync</b> again — the rest is refitted around your fixes. <a href="#" id="autoUndo">Undo auto-sync</a>`);
+    $('autoUndo').onclick=e=>{e.preventDefault();if(AUTO_PREV){overrides=AUTO_PREV.o;autoSet=new Set(AUTO_PREV.a)}applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
+  if(r.confidence<0.33&&!r.anchored){   // a centred instrument plays throughout: the result is likely wrong, so ask first
+    out.innerHTML=T('<b>이 곡은 자동 싱크가 틀릴 가능성이 커요.</b> 보컬 말고도 가운데에서 계속 나는 악기가 많아요. <b>탭 싱크</b>를 추천해요 — 탭 보정이 켜져 있으면 탭을 보컬 시작점에 맞춰 줘요. 몇 줄만 탭한 뒤 자동 싱크를 누르면 탭한 줄을 기준으로 맞춰요.',
+      '<b>Auto-sync is likely to be wrong for this song</b> — a centred instrument plays alongside the vocals. <b>Tap sync</b> is recommended (tap correction snaps taps to vocal starts). Or tap a few lines, then auto-sync around them.')+
+      `<div class="row"><button class="btn ghost" id="autoForce">${T('그래도 적용','Apply anyway')}</button></div>`;$('autoForce').onclick=apply;return}
+  apply()};
 $('syncUndo').onclick=e=>{e.stopPropagation();syncUndo()};
 $('syncStop').onclick=e=>{e.stopPropagation();endSync();pausePlay();showSetup()};
-$('bSyncReset').onclick=()=>{overrides={};lsSet(syncKey(),'{}');applyTimes();refreshInfo()};
+$('bSyncReset').onclick=()=>{overrides={};autoSet.clear();saveOverrides();applyTimes();refreshInfo()};
 $('cSlow').checked=SLOW;$('cSlow').onchange=e=>{SLOW=e.target.checked;lsSet('rz_slow',SLOW?'1':'0')};
+$('cSnap').checked=SNAP;$('cSnap').onchange=e=>{SNAP=e.target.checked;lsSet('rz_snap',SNAP?'1':'0')};
 
 /* ---------- per-line timing editor ---------- */
 const fmtT=t=>{t=Math.max(0,t);return Math.floor(t/60)+':'+(t%60).toFixed(2).padStart(5,'0')};
 function renderLines(){const box=$('lineList');if(!box)return;if(LSEL>=LINES.length)LSEL=-1;
   let h='',ps=null;
   LINES.forEach((L,i)=>{if(L.sec!==ps){ps=L.sec;h+=`<li class="lsec">${esc(L.sec.label)}</li>`}
-    const pin=overrides[i]!=null,on=i===LSEL;
-    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
+    const pin=overrides[i]!=null,au=pin&&autoSet.has(i),on=i===LSEL;
+    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${au?T('<span class="pn pa">자동</span>','<span class="pn pa">AUTO</span>'):pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
       (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05${T('초','s')}</button><button class="btn ghost" data-a="+">+0.05${T('초','s')}</button><button class="btn ghost" data-a="play">▶ ${T('듣기','Listen')}</button><button class="btn ghost" data-a="tap">${T('여기부터 탭','Tap from here')}</button>${pin?`<button class="btn ghost" data-a="auto">${T('자동으로','Auto')}</button>`:''}</div>`:'')+'</li>'});
   box.innerHTML=h;$('lineCnt').textContent=LINES.length?T(`· ${LINES.length}줄`,`· ${LINES.length} lines`):''}
 $('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||EXPORTING)return;
   if(b.classList.contains('lt')){const i=+b.dataset.i;LSEL=LSEL===i?-1:i;renderLines();return}
   const i=LSEL,L=LINES[i],a=b.dataset.a;if(!L)return;
-  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
-  else if(a==='auto'){delete overrides[i];applyTimes();saveOverrides();refreshInfo()}
+  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
+  else if(a==='auto'){delete overrides[i];autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}
   else if(a==='play'){hideSetup();seekTo(Math.max(0,L.start+OFF-1.5));startPlay();pokeHud()}
   else if(a==='tap')startSync(i)});
 

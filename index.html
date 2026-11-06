@@ -91,6 +91,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .lines .tm{font:700 12px "Space Mono",ui-monospace,Menlo,monospace;color:var(--mute);min-width:62px}
 .lines .tx{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lines .pn{font:700 10px "Space Mono",ui-monospace,Menlo,monospace;background:var(--red);color:#fff;padding:2px 6px;letter-spacing:.06em}
+.lines .pn.pa{background:transparent;color:var(--mute);border:1px solid #3a3632}
 .lines .lc{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 12px}
 .lines .lc .btn{min-height:44px;padding:0 12px;font-size:13px;flex:1 1 auto}
 #recOut .row .btn{flex:1}
@@ -224,9 +225,10 @@ Outro
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
     <div class="note" data-en="Shifts all lyrics slightly. &lt;b&gt;+&lt;/b&gt; is later, &lt;b&gt;−&lt;/b&gt; is earlier.">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
     <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button></div>
-    <div class="note" id="autoMsg" data-en="Finds where the vocals start and lines each lyric up with it. More accurate with stereo audio; fine-tune the result below.">음원에서 보컬이 시작되는 지점을 찾아 줄마다 맞춰요. 스테레오 음원에서 더 정확하고, 결과는 아래에서 다듬을 수 있어요.</div>
+    <div class="note" id="autoMsg" data-en="Finds where the vocals start and lines each lyric up with it (stereo audio works best). Lines you tapped or nudged stay put, so fixing a few and pressing it again refits the rest.">음원에서 보컬이 시작되는 지점을 찾아 줄마다 맞춰요 (스테레오 음원에서 더 정확해요). 직접 탭하거나 옮긴 줄은 그대로 두니까, 틀린 줄 몇 개만 고치고 다시 누르면 나머지를 그 기준으로 맞춰요.</div>
     <div class="row"><button class="btn ghost" id="bSync" data-en="Tap sync from start">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
     <label class="chk"><input type="checkbox" id="cSlow"> <span data-en="Play at 0.75× while tap syncing">탭 싱크할 때 0.75배속으로 재생</span></label>
+    <label class="chk"><input type="checkbox" id="cSnap"> <span data-en="Tap correction: snap taps to where the vocal starts">탭 보정 — 탭을 보컬이 시작되는 곳에 맞추기</span></label>
     <div class="note" id="syncNote" data-en="Default timing comes from the analysis (beat · bars · sections). For exact lines use tap sync: while it plays, &lt;b&gt;tap the screen the moment each line starts&lt;/b&gt;. Untapped lines follow the taps around them. Mis-tapped? Press &lt;b&gt;Undo&lt;/b&gt; (rewinds 3 s). Stopping half-way keeps the lines tapped so far.">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
     <details class="help" id="lineEd"><summary><span data-en="Fine-tune line timing">줄별 타이밍 다듬기</span>&nbsp;<span id="lineCnt" class="dim"></span></summary>
       <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, or re-tap from there. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
@@ -303,10 +305,10 @@ async function analyzeFile(file){
   const buf=await new Promise((res,rej)=>{const p=ac.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
   try{ac.close()}catch(e){}
   const SR=22050,len=Math.ceil(buf.duration*SR);
-  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(5,len,SR);
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(7,len,SR);
   const src=oc.createBufferSource();src.buffer=buf;const stereo=buf.numberOfChannels>1;
   const mono=oc.createGain();mono.channelCount=1;mono.channelCountMode='explicit';mono.channelInterpretation='speakers';
-  const mg=oc.createChannelMerger(5);
+  const mg=oc.createChannelMerger(7);
   const lp=oc.createBiquadFilter();lp.type='lowpass';lp.frequency.value=110;
   const hp=oc.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;
   const hl=oc.createBiquadFilter();hl.type='lowpass';hl.frequency.value=7000;
@@ -314,11 +316,15 @@ async function analyzeFile(file){
   if(stereo){const sp=oc.createChannelSplitter(2);src.connect(sp);
     const mk2=(gl,gr)=>{const sum=oc.createGain(),a=oc.createGain(),b=oc.createGain();a.gain.value=gl;b.gain.value=gr;sp.connect(a,0);sp.connect(b,1);a.connect(sum);b.connect(sum);
       const f1=oc.createBiquadFilter();f1.type='highpass';f1.frequency.value=300;const f2=oc.createBiquadFilter();f2.type='lowpass';f2.frequency.value=3400;sum.connect(f1);f1.connect(f2);return f2};
-    mk2(0.5,0.5).connect(mg,0,3);mk2(0.5,-0.5).connect(mg,0,4)}
+    mk2(0.5,0.5).connect(mg,0,3);mk2(0.5,-0.5).connect(mg,0,4);sp.connect(mg,0,5);sp.connect(mg,1,6)}   // raw L/R for the vocal envelope
   mg.connect(oc.destination);src.start(0);
   const out=await new Promise((res,rej)=>{oc.oncomplete=e=>res(e.renderedBuffer);const p=oc.startRendering();if(p&&p.then)p.then(res,rej)});
   await new Promise(r=>setTimeout(r,0));
-  return analyzeBands(out.getChannelData(0),out.getChannelData(1),out.getChannelData(2),SR,buf.duration,stereo?out.getChannelData(3):null,stereo?out.getChannelData(4):null);
+  const an=analyzeBands(out.getChannelData(0),out.getChannelData(1),out.getChannelData(2),SR,buf.duration,stereo?out.getChannelData(3):null,stereo?out.getChannelData(4):null);
+  await new Promise(r=>setTimeout(r,0));
+  /* vocal envelope for auto-sync (25_autosync); mono files have no L/R to separate, so it is much less reliable there */
+  const ve=stereo?vocalEnvelope(out.getChannelData(5),out.getChannelData(6),SR):vocalEnvelope(out.getChannelData(2),out.getChannelData(2),SR);
+  return {...an,vox:ve.vox,vfx:ve.vfx,cns:ve.cns,voxHz:+ve.hz.toFixed(4),voxSt:stereo,v:6};
 }
 function analyzeBands(lo,hi,full,SR,dur,mid,side){
   const hop=256,fr=SR/hop,n=Math.floor(full.length/hop);
@@ -375,12 +381,7 @@ function analyzeBands(lo,hi,full,SR,dur,mid,side){
     kickRate:+(kicks.length/dur).toFixed(2),
     bpm:+bpm.toFixed(1)
   };
-  /* vocal-activity envelope for auto-sync: centre-panned 300–3400 Hz minus the side channel (mono files: full minus low band,
-     much less reliable), ~21 Hz, stored as ints 0–150 relative to the 97th percentile */
-  const vf=Math.max(1,Math.round(fr/20)),nvx=Math.floor(n/vf),vr=new Float32Array(nvx);
-  for(let k=0;k<nvx;k++){let q=0;for(let i=k*vf;i<(k+1)*vf;i++)q+=Mb?Math.max(0,Mb.r[i]-1.15*Sb.r[i]):Math.max(0,Fb.r[i]-1.5*Lb.r[i]);vr[k]=q/vf}
-  const vpk=Array.from(vr).sort((a,b)=>a-b)[Math.floor(nvx*0.97)]||1e-6,vox=Array.from(vr,x=>Math.min(150,Math.round(x/vpk*100)));
-  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats,vox,voxHz:+(fr/vf).toFixed(4),voxSt:!!Mb,v:5};
+  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats};
 }
 
 /* ============================================================
@@ -553,66 +554,121 @@ function rebuildImpacts(){
   IMPACTS.sort((a,b)=>a.t-b.t);IMPACT_T=IMPACTS.map(x=>x.t);
 }
 function syncKey(){return 'rz_sync_'+hash(lyricsText.trim()||'demo')}
-function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}}
-function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides))}
+/* lines whose timing came from auto-sync (not pinned by the user); user-set lines are anchors when auto-sync runs again */
+let autoSet=new Set();
+function autoKey(){return 'rz_auto_'+hash(lyricsText.trim()||'demo')}
+function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}
+  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}}
+function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)))}
 
 /* ============================================================
-   25 · AUTO-SYNC — line starts from the vocal-activity envelope
-        (SONG.vox, see 10_song). 1) segment the envelope into sung
-        phrases + strong re-attacks inside long phrases, 2) a monotonic
-        DP matches lines to those onsets, using syllable counts for
-        expected line lengths and the slot-based default times as a
-        weak prior. Heuristic: results are a starting point to refine.
+   25 · AUTO-SYNC — line starts from the singing itself (beta).
+   1) vocalEnvelope (called from 10_song's analysis): STFT of raw
+      L/R → centre component (in-phase L/R correlation averaged over
+      ~0.15 s, so chorused/detuned stereo pads drop out) → only tonal
+      peaks in 700–4000 Hz (a voice is a comb of harmonics; snares,
+      hats, bass and pads mostly are not) → minus a 20th-percentile
+      floor (sustained centred keys). Plus centred 2–6 kHz noise for
+      unvoiced consonants and a spectral-flux track for precise onsets.
+   2) vocalOnsets: phrase starts + re-attacks + flux peaks.
+   3) align: monotonic DP over onsets, syllable-based line lengths
+      (pauses after a line are cheap, lines shorter than their
+      syllables are not), singing rate re-estimated in a second pass,
+      user-pinned lines kept as anchors.
+   Tuned on synthetic TTS mixes (tools/autosync_bench.*): vocal-led
+   mixes land most lines within 0.15 s; a loud centred lead synth
+   defeats it, which vocalConfidence() detects.
    ============================================================ */
-function vocalOnsets(vox,hz,snares=[]){
-  const n=vox.length,v=new Float32Array(n);
-  for(let i=0;i<n;i++){let q=0,c=0;for(let j=Math.max(0,i-1);j<=Math.min(n-1,i+1);j++){q+=vox[j];c++}v[i]=q/c/100}
-  const ON=0.28,OFF=0.14,minOn=Math.round(0.18*hz),minGap=Math.max(2,Math.round(0.16*hz));
-  const segs=[];let st=-1,low=0;
-  for(let i=0;i<n;i++){
-    if(st<0){if(v[i]>ON){st=i;low=0}}
-    else if(v[i]<OFF){if(++low>=minGap){const e=i-low+1;if(e-st>=minOn)segs.push([st,e]);st=-1}}else low=0}
+function fftIn(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+  for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let j=0;j<len/2;j++){
+    const p=i+j,q=p+len/2,tr=re[q]*cr-im[q]*ci,ti=re[q]*ci+im[q]*cr;re[q]=re[p]-tr;im[q]=im[p]-ti;re[p]+=tr;im[p]+=ti;const nr=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=nr}}}}
+function med(a,tmp){const n=a.length;for(let i=0;i<n;i++)tmp[i]=a[i];for(let i=1;i<n;i++){const v=tmp[i];let j=i-1;while(j>=0&&tmp[j]>v){tmp[j+1]=tmp[j];j--}tmp[j+1]=v}return tmp[n>>1]}
+
+/* L,R at sr (22050) → {vox,vfx,cns: ints 0–150, hz ≈ 43} */
+function vocalEnvelope(L,R,sr){
+  const N=1024,hop=512,nf=Math.max(1,Math.floor((L.length-N)/hop)+1),win=new Float32Array(N);for(let i=0;i<N;i++)win[i]=0.5-0.5*Math.cos(2*Math.PI*i/N);
+  const k0=Math.round(700*N/sr),k1=Math.round(4000*N/sr),nb=k1-k0+1,c0=Math.round(2000*N/sr),c1=Math.round(6000*N/sr),nc=c1-c0+1;
+  const S=new Float32Array(nf*nb),CN=new Float32Array(nf),re=new Float64Array(N),im=new Float64Array(N);
+  const xc=new Float64Array(nb),pL=new Float64Array(nb),pR=new Float64Array(nb),xc2=new Float64Array(nc),pL2=new Float64Array(nc),pR2=new Float64Array(nc);
+  for(let f=0;f<nf;f++){const o=f*hop;for(let i=0;i<N;i++){re[i]=(L[o+i]||0)*win[i];im[i]=(R[o+i]||0)*win[i]}fftIn(re,im);   // one FFT for both channels (L real, R imaginary)
+    for(let k=k0;k<=k1;k++){const a=re[k],b=im[k],c=re[N-k],d=im[N-k],lr=(a+c)/2,li=(b-d)/2,rr=(b+d)/2,ri=(c-a)/2,q=k-k0;
+      xc[q]+=0.3*((lr*rr+li*ri)-xc[q]);pL[q]+=0.3*((lr*lr+li*li)-pL[q]);pR[q]+=0.3*((rr*rr+ri*ri)-pR[q]);
+      const co=Math.max(0,xc[q]/Math.sqrt(pL[q]*pR[q]+1e-18)),mr=(lr+rr)/2,mi=(li+ri)/2;S[f*nb+q]=Math.sqrt(mr*mr+mi*mi)*co*co}
+    let cn=0;for(let k=c0;k<=c1;k++){const a=re[k],b=im[k],c=re[N-k],d=im[N-k],lr=(a+c)/2,li=(b-d)/2,rr=(b+d)/2,ri=(c-a)/2,q=k-c0;
+      xc2[q]+=0.5*((lr*rr+li*ri)-xc2[q]);pL2[q]+=0.5*((lr*lr+li*li)-pL2[q]);pR2[q]+=0.5*((rr*rr+ri*ri)-pR2[q]);
+      const co=Math.max(0,xc2[q]/Math.sqrt(pL2[q]*pR2[q]+1e-18));cn+=((lr+rr)**2+(li+ri)**2)/4*co*co}
+    CN[f]=Math.pow(cn,0.3)}
+  const W=8,tw=new Float32Array(2*W+1),tmp=new Float32Array(2*W+1),E=new Float32Array(nf),FX=new Float32Array(nf),prev=new Float32Array(nb);
+  for(let f=0;f<nf;f++){let e=0,fx=0;
+    for(let k=0;k<nb;k++){for(let j=-W;j<=W;j++){const kk=Math.min(nb-1,Math.max(0,k+j));tw[j+W]=S[f*nb+kk]}const p=med(tw,tmp);
+      const hv=Math.max(0,S[f*nb+k]-2*p);e+=hv*hv;const lv=Math.log(1e-6+hv);fx+=Math.max(0,lv-prev[k]);prev[k]=lv}
+    E[f]=Math.pow(e,0.3);FX[f]=fx}
+  const hz=sr/hop,FW=Math.round(2.5*hz),fl=new Float32Array(nf);
+  for(let f=0;f<nf;f+=8){const a=Math.max(0,f-FW),b=Math.min(nf,f+FW),arr=Array.from(E.subarray(a,b)).sort((x,y)=>x-y),q=arr[Math.floor(arr.length*0.2)]||0;for(let g=f;g<Math.min(nf,f+8);g++)fl[g]=q}
+  const v=new Float32Array(nf);for(let f=0;f<nf;f++)v[f]=Math.max(0,E[f]-fl[f]);
+  const pct=(a,p)=>Array.from(a).sort((x,y)=>x-y)[Math.floor(a.length*p)];
+  const pv=pct(v,0.97)||1,pf=pct(FX,0.98)||1,cmed=pct(CN,0.5)||0,cpk=pct(CN,0.97)||1;
+  const q=(a,f)=>Array.from(a,x=>Math.min(150,Math.max(0,Math.round(f(x)))));
+  return {vox:q(v,x=>x/pv*100),vfx:q(FX,x=>x/pf*100),cns:q(CN,x=>(x-cmed)/(cpk-cmed+1e-9)*100),hz};
+}
+
+/* share of the song where the vocal envelope is near silent: vocal-led mixes ~0.45+, a centred lead playing throughout ~0.25 */
+function vocalConfidence(){const v=SONG&&SONG.vox;if(!v||!v.length)return 0;return v.filter(x=>x<5).length/v.length}
+
+const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2};   // tuned in-app on synthetic TTS mixes
+function vocalOnsets(env){
+  if(env._vc)return env._vc;
+  const {vox,vfx}=env,hz=env.voxHz,cn=env.cns?env.cns.map(x=>x/100):null,n=vox.length,v=new Float32Array(n),fx=new Float32Array(n);
+  for(let i=0;i<n;i++){let q=0,c=0;for(let j=Math.max(0,i-1);j<=Math.min(n-1,i+1);j++){q+=vox[j];c++}v[i]=q/c/100;fx[i]=(vfx?vfx[i]:0)/100}
+  const ON=0.22,OFF=0.1,minOn=Math.round(0.35*hz),minGap=Math.max(2,Math.round(0.1*hz)),C=[],segs=[];let st=-1,low=0;
+  for(let i=0;i<n;i++){if(st<0){if(v[i]>ON){st=i;low=0}}else if(v[i]<OFF){if(++low>=minGap){const e=i-low+1;if(e-st>=minOn)segs.push([st,e]);st=-1}}else low=0}
   if(st>=0&&n-st>=minOn)segs.push([st,n]);
-  const C=[],R=Math.round(0.4*hz),SH=0.35*hz;
+  const peakNear=(c,a,b)=>{let bi=c,bv=-1;for(let i=Math.max(0,a);i<=Math.min(n-1,b);i++)if(fx[i]>bv){bv=fx[i];bi=i}return bi};
+  const W=Math.round(0.12*hz);
   segs.forEach(([a,b])=>{let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,v[i]);
-    /* a centred snare/clap right before the voice merges into the phrase: if the first ≤0.3 s is a short burst followed by a
-       dip, start after the dip instead */
-    let s=a;const hit=snares.some(x=>Math.abs(x-a/hz)<0.08);   // only when a detected snare/clap sits at the segment start
-    if(hit)for(let i=a+2;i<Math.min(b-SH,a+Math.round(0.3*hz));i++){let m0=0;for(let j=a;j<i;j++)m0=Math.max(m0,v[j]);
-      if(v[i]<0.45*m0&&v[i]<v[i+1]){s=i;break}}
-    for(let k=0;k<Math.round(0.15*hz)&&s>0&&v[s-1]<v[s]&&v[s-1]>0.04;k++)s--;   // back down the rising edge (stops at a trough)
-    const len=b-s;
-    if(len<SH){C.push({t:s/hz,w:0.04,ph:false});return}                     // short bursts: percussion or ad-libs — barely preferred
-    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk),ph:true,end:b/hz});
-    /* re-attacks inside one segment (breaths filled by drums or reverb): the longer and deeper the dip, the more it looks
-       like a line break. A ≥0.2 s dip counts as a phrase start. */
-    for(let i=s+Math.round(0.6*hz);i<b-Math.round(0.3*hz);i++){
-      const top=Math.max(v[i],v[i+1],v[i+2]);if(top<0.3)continue;let d=0;while(i-d-1>s&&v[i-d-1]<0.35*top)d++;
-      if(d>=Math.round(0.12*hz)){const long=d>=Math.round(0.2*hz);C.push({t:i/hz,w:long?Math.min(1,0.4+0.5*top):0.3,ph:long,end:b/hz});i+=R}}});
-  return {C:C.sort((x,y)=>x.t-y.t),voiced:C.reduce((a,c)=>a+(c.ph?c.end-c.t:0),0)};
+    let s=a;for(let k=0;k<W&&s>0&&v[s-1]<v[s]&&v[s-1]>0.03;k++)s--;                                     // back down the rising edge
+    s=peakNear(s,s-2,s+W);                                                                                // sharpen to the strongest spectral change
+    if(cn){let g=s;const lim=Math.max(0,s-Math.round(0.3*hz));while(g>lim&&cn[g-1]>0.25&&v[g-1]<0.6*pk)g--;if(s-g>=2)s=g}   // unvoiced consonant first (ㅈ ㅊ ㅅ ㄲ…)
+    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk),ph:true});
+    for(let i=s+Math.round(0.5*hz);i<b-Math.round(0.25*hz);i++){                                        // breaths filled by reverb: a dip, then a strong change
+      const top=Math.max(v[i],v[i+1],v[i+2]);let d=0;while(i-d-1>s&&v[i-d-1]<AS.dipR*top)d++;
+      if(d>=Math.round(0.08*hz)&&top>0.25){const long=d>=Math.round(0.16*hz);C.push({t:peakNear(i,i-2,i+3)/hz,w:long?AS.reW:AS.reW/2,ph:long});i+=Math.round(0.35*hz)}}});
+  for(let i=2;i<n-2;i++)if(fx[i]>0.5&&fx[i]>=fx[i-1]&&fx[i]>=fx[i+1]&&v[i+2]>0.2&&!C.some(c=>Math.abs(c.t-i/hz)<0.2))C.push({t:i/hz,w:AS.weakW,ph:false});   // continuous rap
+  let voiced=0;segs.forEach(([a,b])=>voiced+=(b-a)/hz);
+  return env._vc={C:C.sort((x,y)=>x.t-y.t),voiced};
 }
-/* returns {times:[audio seconds per line], onsets, rate} or null when there isn't enough vocal signal */
-function autoSync(){
-  if(!SONG||!SONG.vox||!LINES.length)return null;
-  const {C,voiced}=vocalOnsets(SONG.vox,SONG.voxHz,SNARES),N=LINES.length,M=C.length;
-  if(M<N||voiced<2)return null;
-  const S=LINES.map(L=>Math.max(1,syl(L.text))),rate=clamp(S.reduce((a,b)=>a+b,0)/voiced,1.5,9),ex=S.map(s=>s/rate+0.3);
-  const ph=[0];C.forEach((c,j)=>ph.push(ph[j]+(c.ph?c.w:0)));                // prefix sums of phrase-start strength
-  const newSec=i=>i>0&&LINES[i].sec!==LINES[i-1].sec;
-  const prior=(i,j)=>{const d=(C[j].t-LINES[i].def-OFF)/15;return 0.12*d*d};
-  const dur=(i,g)=>{if(g<0.25)return 1e9;const r=Math.log(g/ex[i]);return r>0?(newSec(i+1)?0.12:0.7)*r*r:1.5*r*r};
-  const K=28,INF=1e18,dp=[],bk=[];
-  dp[0]=C.map((c,j)=>-c.w+prior(0,j)+0.6*ph[j]);bk[0]=C.map(()=>-1);
+function alignOnce(C0,S,sec,defs,anchors,rate){
+  const C=C0.slice(),N=S.length;Object.entries(anchors).forEach(([i,t])=>C.push({t,w:1,ph:false,anchor:+i}));C.sort((x,y)=>x.t-y.t);
+  const M=C.length;if(M<N)return null;
+  const ex=S.map(s=>s/rate+0.25),ph=[0];C.forEach((c,j)=>ph.push(ph[j]+(c.ph?c.w:0)));
+  const newSec=i=>i>0&&sec[i]!==sec[i-1],allow=(i,j)=>C[j].anchor===undefined?!(i in anchors):C[j].anchor===i;
+  const prior=(i,j)=>{const d=(C[j].t-defs[i])/20;return 0.08*d*d};
+  const dur=(i,g)=>{if(g<0.2)return 1e9;const r=Math.log(g/ex[i]);return r>0?(newSec(i+1)?AS.secW:AS.longW)*r*r:AS.shortW*r*r};
+  const K=40,INF=1e18,dp=[],bk=[];
+  dp[0]=C.map((c,j)=>allow(0,j)?-c.w+prior(0,j)+AS.skip*ph[j]:INF);bk[0]=C.map(()=>-1);
   for(let i=1;i<N;i++){dp[i]=new Array(M).fill(INF);bk[i]=new Array(M).fill(-1);
-    for(let k=i;k<M;k++){let best=INF,bj=-1;
-      for(let j=Math.max(i-1,k-K);j<k;j++){const p=dp[i-1][j];if(p>=INF)continue;
-        const q=p+dur(i-1,C[k].t-C[j].t)+0.6*(ph[k]-ph[j+1]);if(q<best){best=q;bj=j}}
+    for(let k=i;k<M;k++){if(!allow(i,k))continue;let best=INF,bj=-1;
+      for(let j=Math.max(i-1,k-K);j<k;j++){const p=dp[i-1][j];if(p>=INF)continue;const q=p+dur(i-1,C[k].t-C[j].t)+AS.skip*(ph[k]-ph[j+1]);if(q<best){best=q;bj=j}}
       if(bj>=0){dp[i][k]=best-C[k].w+prior(i,k);bk[i][k]=bj}}}
-  let end=-1,eb=INF;for(let j=0;j<M;j++){const q=dp[N-1][j]+0.25*(ph[M]-ph[j+1]);if(q<eb){eb=q;end=j}}
-  if(end<0||eb>=INF)return null;
-  const idx=[];for(let i=N-1,j=end;i>=0;i--){idx.unshift(j);j=bk[i][j]}
-  return {times:idx.map(j=>Math.max(0,C[j].t-0.03)),onsets:M,rate};
+  let end=-1,eb=INF;for(let j=0;j<M;j++){const q=dp[N-1][j]+AS.endSkip*(ph[M]-ph[j+1]);if(q<eb){eb=q;end=j}}
+  if(end<0||eb>=INF)return null;const idx=[];for(let i=N-1,j=end;i>=0;i--){idx.unshift(j);j=bk[i][j]}
+  return idx.map(j=>C[j].anchor!==undefined?C[j].t:Math.max(0,C[j].t-0.02));
 }
+/* anchors: {lineIndex: audioTime} kept exactly. Returns {times (audio s), anchored, confidence} or null. */
+function autoSync(anchors={}){
+  if(!SONG||!SONG.vox||!LINES.length)return null;
+  const {C,voiced}=vocalOnsets(SONG);if(voiced<2)return null;
+  const S=LINES.map(L=>Math.max(1,syl(L.text))),sec=LINES.map(L=>L.sec.idx),defs=LINES.map(L=>L.def+OFF);
+  let rate=clamp(S.reduce((a,b)=>a+b,0)/voiced,1.5,9),out=null;
+  for(let pass=0;pass<2;pass++){const r=alignOnce(C,S,sec,defs,anchors,rate);if(!r)break;out=r;   // pass 2: singing rate from pass 1's line gaps
+    const rs=[];for(let i=0;i+1<S.length;i++)if(sec[i]===sec[i+1]){const g=r[i+1]-r[i];if(g>0.3)rs.push(S[i]/Math.max(0.3,g-0.25))}
+    if(rs.length<3)break;rs.sort((x,y)=>x-y);rate=clamp(rs[rs.length>>1],1.5,9)}
+  return out&&{times:out,anchored:Object.keys(anchors).length,confidence:vocalConfidence()};
+}
+/* tap correction: move a tap (audio s) to the nearest vocal onset in [-0.2, +0.12] s, if any */
+function snapToVocal(t){if(!SONG||!SONG.vox)return t;const {C}=vocalOnsets(SONG);let best=null,bs=1e9;
+  for(const c of C){if(c.t<t-0.2)continue;if(c.t>t+0.12)break;const s=Math.abs(c.t-t)-c.w*0.1;if(s<bs){bs=s;best=c}}
+  return best?Math.max(0,best.t-0.02):t}
 
 /* ============================================================
    30 · DIRECTIONS — art-direction presets
@@ -1618,12 +1674,12 @@ function projName(){
   if(AUDIO_TITLE)return AUDIO_TITLE;
   const ln=lsGet('rz_lyrics','').split('\n').map(s=>s.trim()).find(s=>s&&!parseHeader(s));return ln?ln.replace(/[*()]/g,'').slice(0,24):T('새 프로젝트','New project')}
 function projSnapshot(){const keys={};PKEYS.forEach(k=>{const v=lsGet(k,null);if(v!=null)keys[k]=v});
-  const sk=syncKey(),sv=lsGet(sk,null);return {app:PFILE,v:1,name:projName(),keys,sync:sv?{[sk]:sv}:{}}}
+  const sync={};[syncKey(),autoKey()].forEach(k=>{const v=lsGet(k,null);if(v!=null)sync[k]=v});return {app:PFILE,v:1,name:projName(),keys,sync}}
 function projSaveCur(){if(!PROJ_ID||PROJ_LEAVING)return;
   clearTimeout(deb);const lv=$('lyrics').value;if(lv!==lyricsText){lyricsText=lv;lsSet('rz_lyrics',lv)}   // flush typing still inside the input debounce
  lsSet('rz_proj_'+PROJ_ID,JSON.stringify(projSnapshot()));projTouch()}
 function projApply(sn){PKEYS.forEach(lsDel);Object.entries(sn.keys||{}).forEach(([k,v])=>{if(PKEYS.includes(k))lsSet(k,String(v))});
-  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_sync_\d+$/.test(k))lsSet(k,String(v))})}
+  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_(sync|auto)_\d+$/.test(k))lsSet(k,String(v))})}
 function projOpen(id){PROJ_LEAVING=true;lsSet('rz_cur',id);location.reload()}
 function projTouch(){if(PROJ_LEAVING)return;const p=PROJS.find(x=>x.id===PROJ_ID);if(!p)return;p.name=projName();p.updated=Date.now();projSaveList();projRender()}
 
@@ -1744,7 +1800,7 @@ async function loadAudioFile(f,store){
   au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);
   if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · ${T('준비됨','ready')}`;
-  const key='rz_an5_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
+  const key='rz_an6_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML=T('<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 · 보컬 (몇 초 걸려요)','<b>Analysing…</b> tempo · kicks · snares · sections · mood · vocals (a few seconds)');$('bpmRow').classList.add('hidden');
     try{an=await analyzeFile(f);lsSet(key,JSON.stringify(an))}catch(err){$('anInfo').innerHTML=T('<b>이 파일은 분석하지 못했어요.</b> 기본 박자로 재생되니 탭 싱크로 맞춰 주세요.','<b>Couldn\'t analyse this file.</b> It plays on a default beat — use tap sync.');return}}
   applyAnalysis(an)}
@@ -1783,7 +1839,7 @@ addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))retur
 
 /* ---------- tap sync: start from any line, undo, 0.75× mode ----------
    Taps overwrite one line at a time, so stopping half-way keeps every earlier tap and every later line's old value. */
-let SLOW=lsGet('rz_slow','0')==='1',syncHist=[],tapWall=0,LSEL=-1;
+let SLOW=lsGet('rz_slow','0')==='1',SNAP=lsGet('rz_snap','1')==='1',syncHist=[],tapWall=0,LSEL=-1;
 function syncShow(){const L=LINES[syncIdx];
   $('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>${T('다음 줄이 시작될 때 탭','Tap when this line starts')}: <b>${esc(L.text)}</b>`:T('완료!','Done!');
   $('syncUndo').disabled=!syncHist.length}
@@ -1798,39 +1854,50 @@ function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,
     const tt=fmtT(at).replace(/\.\d+$/,'');$('syncInfo').innerHTML=`<div class="k">TAP SYNC · ${n}</div>`+T(`다른 앱에서 노래를 <b>${tt}</b>에 맞춰 두고, 0이 되는 순간 재생하세요`,`Cue the song to <b>${tt}</b> in your music app and press play at 0`);n--;syncCD=setTimeout(tick,1000)};tick()}
 let syncCD=0;
 function syncTap(){if(syncIdx>=LINES.length||!playing)return;const w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
-  syncHist.push({i:syncIdx,prev:overrides[syncIdx]});overrides[syncIdx]=now()-0.08*RATE-OFF;applyTimes();saveOverrides();syncIdx++;syncShow();
+  let t=now()-0.08*RATE;if(SNAP&&hasAudio)t=snapToVocal(t);   // tap correction: nearest vocal onset within −0.2/+0.12 s
+  syncHist.push({i:syncIdx,prev:overrides[syncIdx],auto:autoSet.has(syncIdx)});overrides[syncIdx]=t-OFF;autoSet.delete(syncIdx);applyTimes();saveOverrides();syncIdx++;syncShow();
   if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
-function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;applyTimes();saveOverrides();
+function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;if(h.auto)autoSet.add(h.i);applyTimes();saveOverrides();
   syncIdx=h.i;syncShow();seekTo(Math.max(0,now()-3));if(!playing)startPlay()}
 function endSync(){clearTimeout(syncCD);syncMode=false;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
 $('bSync').onclick=()=>startSync(0);
-/* auto-sync (25_autosync): replaces all line timings; one-step undo */
+/* auto-sync (25_autosync): lines you tapped or nudged stay as anchors, the rest are fitted between them; one-step undo */
 let AUTO_PREV=null;
 $('bAuto').onclick=()=>{const out=$('autoMsg');
   if(!hasAudio||!SONG.vox){out.innerHTML=T('<b>음원 파일을 넣어야</b> 자동 싱크를 할 수 있어요.','Auto-sync needs an <b>audio file</b>.');return}
-  const r=autoSync();if(!r){out.innerHTML=T('<b>보컬을 충분히 찾지 못했어요.</b> 탭 싱크로 맞춰 주세요.','<b>Not enough vocals found.</b> Use tap sync instead.');return}
-  AUTO_PREV={...overrides};overrides={};r.times.forEach((t,i)=>overrides[i]=t-OFF);applyTimes();saveOverrides();refreshInfo();
-  out.innerHTML=T(`<b>${LINES.length}줄</b>을 보컬이 시작되는 곳에 맞췄어요${SONG.voxSt?'':' (모노 음원이라 정확도가 낮아요)'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄부터 다시 탭하세요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,`Matched <b>${LINES.length} lines</b> to where the vocals start${SONG.voxSt?'':' (mono audio — less accurate)'}. Play it back; fix any wrong line in <b>Fine-tune line timing</b> below, or re-tap from that line. <a href="#" id="autoUndo">Undo auto-sync</a>`);
-  $('autoUndo').onclick=e=>{e.preventDefault();overrides=AUTO_PREV||{};applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
+  const anchors={};Object.keys(overrides).forEach(k=>{const i=+k;if(i<LINES.length&&!autoSet.has(i))anchors[i]=overrides[i]+OFF});
+  const r=autoSync(anchors);if(!r){out.innerHTML=T('<b>보컬을 충분히 찾지 못했어요.</b> 탭 싱크로 맞춰 주세요.','<b>Not enough vocals found.</b> Use tap sync instead.');return}
+  const apply=()=>{AUTO_PREV={o:{...overrides},a:[...autoSet]};
+    r.times.forEach((t,i)=>{if(!(i in anchors)){overrides[i]=t-OFF;autoSet.add(i)}});applyTimes();saveOverrides();refreshInfo();
+    const n=LINES.length-r.anchored,keep=r.anchored?T(` (직접 맞춘 ${r.anchored}줄은 그대로)`,` (your ${r.anchored} set lines kept)`):'';
+    out.innerHTML=T(`<b>${n}줄</b>을 보컬이 시작되는 곳에 맞췄어요${keep}${SONG.voxSt?'':' · 모노 음원이라 정확도가 낮아요'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄을 다시 탭한 뒤 <b>자동 싱크</b>를 한 번 더 누르세요 — 고친 줄을 기준으로 나머지를 다시 맞춰요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,
+      `Matched <b>${n} lines</b> to where the vocals start${keep}${SONG.voxSt?'':' · mono audio, less accurate'}. Play it back; fix a wrong line in <b>Fine-tune line timing</b> or re-tap it, then press <b>Auto-sync</b> again — the rest is refitted around your fixes. <a href="#" id="autoUndo">Undo auto-sync</a>`);
+    $('autoUndo').onclick=e=>{e.preventDefault();if(AUTO_PREV){overrides=AUTO_PREV.o;autoSet=new Set(AUTO_PREV.a)}applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
+  if(r.confidence<0.33&&!r.anchored){   // a centred instrument plays throughout: the result is likely wrong, so ask first
+    out.innerHTML=T('<b>이 곡은 자동 싱크가 틀릴 가능성이 커요.</b> 보컬 말고도 가운데에서 계속 나는 악기가 많아요. <b>탭 싱크</b>를 추천해요 — 탭 보정이 켜져 있으면 탭을 보컬 시작점에 맞춰 줘요. 몇 줄만 탭한 뒤 자동 싱크를 누르면 탭한 줄을 기준으로 맞춰요.',
+      '<b>Auto-sync is likely to be wrong for this song</b> — a centred instrument plays alongside the vocals. <b>Tap sync</b> is recommended (tap correction snaps taps to vocal starts). Or tap a few lines, then auto-sync around them.')+
+      `<div class="row"><button class="btn ghost" id="autoForce">${T('그래도 적용','Apply anyway')}</button></div>`;$('autoForce').onclick=apply;return}
+  apply()};
 $('syncUndo').onclick=e=>{e.stopPropagation();syncUndo()};
 $('syncStop').onclick=e=>{e.stopPropagation();endSync();pausePlay();showSetup()};
-$('bSyncReset').onclick=()=>{overrides={};lsSet(syncKey(),'{}');applyTimes();refreshInfo()};
+$('bSyncReset').onclick=()=>{overrides={};autoSet.clear();saveOverrides();applyTimes();refreshInfo()};
 $('cSlow').checked=SLOW;$('cSlow').onchange=e=>{SLOW=e.target.checked;lsSet('rz_slow',SLOW?'1':'0')};
+$('cSnap').checked=SNAP;$('cSnap').onchange=e=>{SNAP=e.target.checked;lsSet('rz_snap',SNAP?'1':'0')};
 
 /* ---------- per-line timing editor ---------- */
 const fmtT=t=>{t=Math.max(0,t);return Math.floor(t/60)+':'+(t%60).toFixed(2).padStart(5,'0')};
 function renderLines(){const box=$('lineList');if(!box)return;if(LSEL>=LINES.length)LSEL=-1;
   let h='',ps=null;
   LINES.forEach((L,i)=>{if(L.sec!==ps){ps=L.sec;h+=`<li class="lsec">${esc(L.sec.label)}</li>`}
-    const pin=overrides[i]!=null,on=i===LSEL;
-    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
+    const pin=overrides[i]!=null,au=pin&&autoSet.has(i),on=i===LSEL;
+    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${au?T('<span class="pn pa">자동</span>','<span class="pn pa">AUTO</span>'):pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
       (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05${T('초','s')}</button><button class="btn ghost" data-a="+">+0.05${T('초','s')}</button><button class="btn ghost" data-a="play">▶ ${T('듣기','Listen')}</button><button class="btn ghost" data-a="tap">${T('여기부터 탭','Tap from here')}</button>${pin?`<button class="btn ghost" data-a="auto">${T('자동으로','Auto')}</button>`:''}</div>`:'')+'</li>'});
   box.innerHTML=h;$('lineCnt').textContent=LINES.length?T(`· ${LINES.length}줄`,`· ${LINES.length} lines`):''}
 $('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||EXPORTING)return;
   if(b.classList.contains('lt')){const i=+b.dataset.i;LSEL=LSEL===i?-1:i;renderLines();return}
   const i=LSEL,L=LINES[i],a=b.dataset.a;if(!L)return;
-  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
-  else if(a==='auto'){delete overrides[i];applyTimes();saveOverrides();refreshInfo()}
+  if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
+  else if(a==='auto'){delete overrides[i];autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}
   else if(a==='play'){hideSetup();seekTo(Math.max(0,L.start+OFF-1.5));startPlay();pokeHud()}
   else if(a==='tap')startSync(i)});
 

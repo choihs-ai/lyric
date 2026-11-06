@@ -14,7 +14,8 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
 - `src/js/NN_*.js` — modules, concatenated in filename order into one `<script>`:
   - `00_util` math/easing/color/storage, `LANG` + `T(ko,en)` · `10_song` song model, no-audio `manualSong`, in-browser audio analysis + mood features + vocal envelope (`vox`)
   - `20_lyrics` parser (`*emph*`, `**max**`, `(adlib)`, section headers), section slots, line/word timing, KO/EN demo text
-  - `25_autosync` vocal phrase onsets from `SONG.vox` + DP matching lines to onsets (beta)
+  - `25_autosync` vocal envelope (STFT centre extraction → tonal peaks 0.7–4 kHz → floor; consonant + flux tracks), onsets,
+    DP line alignment with user-pinned lines as anchors, `vocalConfidence`, tap correction `snapToVocal` (beta)
   - `30_directions` six art directions (fonts, palettes per section role, backgrounds, mode pools, motion, post-FX)
   - `35_director` mood → direction, per-line mode assignment, emphasis, AI director (`sample` capability)
   - `40_text` canvases, font roles (d/s/m/l/h), `A()` alpha convention, layout engine
@@ -33,6 +34,9 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
 3. `node tools/smoke.js` — must print `no errors`; look at a few frames in `.shots/`. It also checks the line editor and,
    when the browser has WebCodecs, runs a real export to `.shots/export.mp4` (verified with ffprobe/ffmpeg if installed).
 4. Commit `src/` and `index.html` together.
+- Changing auto-sync? `python3 tools/autosync_bench/mix.py` (needs espeak-ng + numpy) builds TTS test songs with known line
+  starts; `node tools/autosync_bench/bench.js` reports accuracy. Current: vocal-led mixes ~68% of lines within 0.15 s,
+  ~78% within 0.3 s; mixes with a loud centred lead are flagged by `vocalConfidence` (< 0.33) instead of applied.
 
 ## Conventions
 - `frame(t)` must stay a pure function of `t` (no wall-clock state) — the offline exporter renders frames out of realtime.

@@ -21,10 +21,10 @@ async function analyzeFile(file){
   const buf=await new Promise((res,rej)=>{const p=ac.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
   try{ac.close()}catch(e){}
   const SR=22050,len=Math.ceil(buf.duration*SR);
-  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(5,len,SR);
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(7,len,SR);
   const src=oc.createBufferSource();src.buffer=buf;const stereo=buf.numberOfChannels>1;
   const mono=oc.createGain();mono.channelCount=1;mono.channelCountMode='explicit';mono.channelInterpretation='speakers';
-  const mg=oc.createChannelMerger(5);
+  const mg=oc.createChannelMerger(7);
   const lp=oc.createBiquadFilter();lp.type='lowpass';lp.frequency.value=110;
   const hp=oc.createBiquadFilter();hp.type='highpass';hp.frequency.value=1800;
   const hl=oc.createBiquadFilter();hl.type='lowpass';hl.frequency.value=7000;
@@ -32,11 +32,15 @@ async function analyzeFile(file){
   if(stereo){const sp=oc.createChannelSplitter(2);src.connect(sp);
     const mk2=(gl,gr)=>{const sum=oc.createGain(),a=oc.createGain(),b=oc.createGain();a.gain.value=gl;b.gain.value=gr;sp.connect(a,0);sp.connect(b,1);a.connect(sum);b.connect(sum);
       const f1=oc.createBiquadFilter();f1.type='highpass';f1.frequency.value=300;const f2=oc.createBiquadFilter();f2.type='lowpass';f2.frequency.value=3400;sum.connect(f1);f1.connect(f2);return f2};
-    mk2(0.5,0.5).connect(mg,0,3);mk2(0.5,-0.5).connect(mg,0,4)}
+    mk2(0.5,0.5).connect(mg,0,3);mk2(0.5,-0.5).connect(mg,0,4);sp.connect(mg,0,5);sp.connect(mg,1,6)}   // raw L/R for the vocal envelope
   mg.connect(oc.destination);src.start(0);
   const out=await new Promise((res,rej)=>{oc.oncomplete=e=>res(e.renderedBuffer);const p=oc.startRendering();if(p&&p.then)p.then(res,rej)});
   await new Promise(r=>setTimeout(r,0));
-  return analyzeBands(out.getChannelData(0),out.getChannelData(1),out.getChannelData(2),SR,buf.duration,stereo?out.getChannelData(3):null,stereo?out.getChannelData(4):null);
+  const an=analyzeBands(out.getChannelData(0),out.getChannelData(1),out.getChannelData(2),SR,buf.duration,stereo?out.getChannelData(3):null,stereo?out.getChannelData(4):null);
+  await new Promise(r=>setTimeout(r,0));
+  /* vocal envelope for auto-sync (25_autosync); mono files have no L/R to separate, so it is much less reliable there */
+  const ve=stereo?vocalEnvelope(out.getChannelData(5),out.getChannelData(6),SR):vocalEnvelope(out.getChannelData(2),out.getChannelData(2),SR);
+  return {...an,vox:ve.vox,vfx:ve.vfx,cns:ve.cns,voxHz:+ve.hz.toFixed(4),voxSt:stereo,v:6};
 }
 function analyzeBands(lo,hi,full,SR,dur,mid,side){
   const hop=256,fr=SR/hop,n=Math.floor(full.length/hop);
@@ -93,10 +97,5 @@ function analyzeBands(lo,hi,full,SR,dur,mid,side){
     kickRate:+(kicks.length/dur).toFixed(2),
     bpm:+bpm.toFixed(1)
   };
-  /* vocal-activity envelope for auto-sync: centre-panned 300–3400 Hz minus the side channel (mono files: full minus low band,
-     much less reliable), ~21 Hz, stored as ints 0–150 relative to the 97th percentile */
-  const vf=Math.max(1,Math.round(fr/20)),nvx=Math.floor(n/vf),vr=new Float32Array(nvx);
-  for(let k=0;k<nvx;k++){let q=0;for(let i=k*vf;i<(k+1)*vf;i++)q+=Mb?Math.max(0,Mb.r[i]-1.15*Sb.r[i]):Math.max(0,Fb.r[i]-1.5*Lb.r[i]);vr[k]=q/vf}
-  const vpk=Array.from(vr).sort((a,b)=>a-b)[Math.floor(nvx*0.97)]||1e-6,vox=Array.from(vr,x=>Math.min(150,Math.round(x/vpk*100)));
-  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats,vox,voxHz:+(fr/vf).toFixed(4),voxSt:!!Mb,v:5};
+  return {bpm:+bpm.toFixed(2),t0:+bar0.toFixed(4),dur:+dur.toFixed(3),kicks,snares,startBar,endBar,nov,feats};
 }

@@ -168,5 +168,9 @@ function rebuildImpacts(){
   IMPACTS.sort((a,b)=>a.t-b.t);IMPACT_T=IMPACTS.map(x=>x.t);
 }
 function syncKey(){return 'rz_sync_'+hash(lyricsText.trim()||'demo')}
-function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}}
-function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides))}
+/* lines whose timing came from auto-sync (not pinned by the user); user-set lines are anchors when auto-sync runs again */
+let autoSet=new Set();
+function autoKey(){return 'rz_auto_'+hash(lyricsText.trim()||'demo')}
+function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}
+  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}}
+function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)))}
