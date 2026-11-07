@@ -52,7 +52,7 @@ function vocalEnvelope(L,R,sr){
 /* share of the song where the vocal envelope is near silent: vocal-led mixes ~0.45+, a centred lead playing throughout ~0.25 */
 function vocalConfidence(){const v=SONG&&SONG.vox;if(!v||!v.length)return 0;return v.filter(x=>x<5).length/v.length}
 
-const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2};   // tuned in-app on synthetic TTS mixes
+const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2,gapW:1,gapFull:0.6,gapPh:0.18};   // tuned in-app on synthetic TTS mixes
 function vocalOnsets(env){
   if(env._vc)return env._vc;
   const {vox,vfx}=env,hz=env.voxHz,cn=env.cns?env.cns.map(x=>x/100):null,n=vox.length,v=new Float32Array(n),fx=new Float32Array(n);
@@ -62,11 +62,13 @@ function vocalOnsets(env){
   if(st>=0&&n-st>=minOn)segs.push([st,n]);
   const peakNear=(c,a,b)=>{let bi=c,bv=-1;for(let i=Math.max(0,a);i<=Math.min(n-1,b);i++)if(fx[i]>bv){bv=fx[i];bi=i}return bi};
   const W=Math.round(0.12*hz);
-  segs.forEach(([a,b])=>{let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,v[i]);
+  /* line starts follow pauses: weight each phrase start by the silence before it, and only a real pause (≥ AS.gapPh)
+     makes it a phrase start — short gaps between words inside a line don't */
+  segs.forEach(([a,b],si)=>{let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,v[i]);const gap=si?(a-segs[si-1][1])/hz:9,gw=AS.gapW?0.4+0.6*clamp(gap/AS.gapFull):1;
     let s=a;for(let k=0;k<W&&s>0&&v[s-1]<v[s]&&v[s-1]>0.03;k++)s--;                                     // back down the rising edge
     s=peakNear(s,s-2,s+W);                                                                                // sharpen to the strongest spectral change
     if(cn){let g=s;const lim=Math.max(0,s-Math.round(0.3*hz));while(g>lim&&cn[g-1]>0.25&&v[g-1]<0.6*pk)g--;if(s-g>=2)s=g}   // unvoiced consonant first (ㅈ ㅊ ㅅ ㄲ…)
-    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk),ph:true});
+    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk)*gw,ph:gap>=AS.gapPh});
     for(let i=s+Math.round(0.5*hz);i<b-Math.round(0.25*hz);i++){                                        // breaths filled by reverb: a dip, then a strong change
       const top=Math.max(v[i],v[i+1],v[i+2]);let d=0;while(i-d-1>s&&v[i-d-1]<AS.dipR*top)d++;
       if(d>=Math.round(0.08*hz)&&top>0.25){const long=d>=Math.round(0.16*hz);C.push({t:peakNear(i,i-2,i+3)/hz,w:long?AS.reW:AS.reW/2,ph:long});i+=Math.round(0.35*hz)}}});
@@ -106,3 +108,40 @@ function autoSync(anchors={}){
 function snapToVocal(t){if(!SONG||!SONG.vox)return t;const {C}=vocalOnsets(SONG);let best=null,bs=1e9;
   for(const c of C){if(c.t<t-0.2)continue;if(c.t>t+0.12)break;const s=Math.abs(c.t-t)-c.w*0.1;if(s<bs){bs=s;best=c}}
   return best?Math.max(0,best.t-0.02):t}
+
+/* ---------- word starts inside lines (beta) ----------
+   For each line: the sung span runs from the line start to the last voiced frame before the next line. Syllable-level
+   onsets are spectral-flux peaks while voiced (pulled back over an unvoiced consonant when the centred noise track rises
+   just before). Each word after the first picks one onset — or keeps its syllable-proportional expected position — by a
+   small DP that prefers strong onsets near the expected position and keeps words in order ≥60 ms apart.
+   only(i) filters lines; results go to wover (offsets from the line start) and wauto. Returns the number of lines set. */
+const AW={vOn:30,rise:30,gapSig:0.6,skip:0,virt:0.3,minGap:0.06,dipW:0.3,cnBack:0.15};   // tuned in-app on per-word TTS mixes
+function autoWords(only){
+  if(!SONG||!SONG.vox)return 0;const hz=SONG.voxHz,v=SONG.vox,cn=SONG.cns,n=v.length;let done=0;
+  LINES.forEach((L,i)=>{const W=L.words.length;if(W<2||(only&&!only(i)))return;
+    const s=L.start+OFF,a=Math.max(0,Math.round(s*hz)),b=Math.min(n-6,Math.round((L.end+OFF)*hz));if(b-a<6)return;
+    let ve=a;for(let f=a;f<=b;f++)if(v[f]>AW.vOn)ve=f;                                            // end of singing (reverb tails stay under vOn)
+    const S=L.words.map(w=>Math.max(1,Math.round(syl(w.text)))),tot=S.reduce((x,y)=>x+y,0),D=Math.max(0.3,(ve-a)/hz),avg=D/tot;
+    /* syllable onsets: the voice dips and rises again at each syllable (deeper dips = gaps between words); pulled back
+       over an unvoiced consonant (ㅅ ㅈ ㅊ ㅎ…) when the centred noise track is already up just before */
+    const C=[];for(let f=a+3;f<ve;f++){if(!(v[f]<=v[f-1]&&v[f]<=v[f+1]))continue;
+      let up=0,pre=0;for(let q=1;q<=4;q++){up=Math.max(up,v[f+q]);pre=Math.max(pre,v[f-q])}
+      if(up-v[f]<AW.rise)continue;let g=f;
+      if(cn){const lim=f-Math.round(AW.cnBack*hz);while(g>lim&&g>a+1&&cn[g-1]>15&&cn[g-1]<=cn[g]+8&&v[g-1]<=v[f]+6)g--}
+      C.push({t:g/hz,w:Math.min(1,(up-v[f])/100+AW.dipW*Math.max(0,pre-v[f])/100+(v[f]<6?0.3:0))});f+=2}
+    /* DP: syllable j (1..tot-1) takes an onset in order, or a virtual onset at its proportional position; gaps should be
+       near the line's average syllable length, strong onsets are preferred, skipped strong onsets cost a little */
+    const M=C.length,INF=1e9,ph=[0];C.forEach((c,q)=>ph.push(ph[q]+c.w));
+    let prev=[{t:s,cost:0,ci:-1,bk:null}];
+    for(let j=1;j<tot;j++){const ex=s+avg*j,cur=[];
+      const cands=C.map((c,q)=>({t:c.t,w:c.w,ci:q})).filter(c=>Math.abs(c.t-ex)<Math.max(0.5,2.5*avg)).concat([{t:ex,w:-AW.virt,ci:null}]);
+      for(const c of cands){let best=null;
+        for(const p of prev){if(c.t<p.t+AW.minGap)continue;if(c.ci!=null&&p.ci!=null&&c.ci<=p.ci)continue;
+          const g=c.t-p.t,sk=c.ci!=null?AW.skip*(ph[c.ci]-ph[(p.ci==null?-1:p.ci)+1]):0,val=p.cost+0.5*((g-avg)/(AW.gapSig*avg))**2-c.w+Math.max(0,sk);
+          if(!best||val<best.cost)best={t:c.t,cost:val,ci:c.ci!=null?c.ci:p.ci,bk:p}}
+        if(best)cur.push(best)}
+      if(!cur.length)return;cur.sort((x,y)=>x.cost-y.cost);prev=cur.slice(0,60)}
+    let node=prev.reduce((x,y)=>y.cost<x.cost?y:x);const on=new Array(tot);for(let j=tot-1;j>=0;j--){on[j]=node.t;node=node.bk}
+    let k0=0;wover[i]=S.map(x=>{const t=on[k0];k0+=x;return +(t-s).toFixed(3)});wover[i][0]=0;wauto.add(i);done++});
+  return done;
+}

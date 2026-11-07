@@ -91,6 +91,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .lines .tm{font:700 12px "Space Mono",ui-monospace,Menlo,monospace;color:var(--mute);min-width:62px}
 .lines .tx{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lines .pn{font:700 10px "Space Mono",ui-monospace,Menlo,monospace;background:var(--red);color:#fff;padding:2px 6px;letter-spacing:.06em}
+.lines .pn.pw{background:#2b2825;color:#fff;margin-right:4px}
 .lines .pn.pa{background:transparent;color:var(--mute);border:1px solid #3a3632}
 .lines .lc{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 12px}
 .lines .lc .btn{min-height:44px;padding:0 12px;font-size:13px;flex:1 1 auto}
@@ -110,6 +111,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
+#syncInfo .wd{opacity:.5}#syncInfo .wn{opacity:.85}#syncInfo .wc{background:#fff;color:#c21d16;font-weight:800;padding:0 4px}
 #ytBox{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:200px;height:200px;z-index:12;background:#000;border:1px solid #3a3632}
 #ytAd{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);z-index:13;background:#ffd400;color:#070707;
   font:700 13px -apple-system,"Apple SD Gothic Neo",sans-serif;padding:10px 14px;max-width:calc(100vw - 32px);text-align:center}
@@ -240,14 +242,15 @@ Outro
     <h2 data-en="Sync">싱크</h2>
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
     <div class="note" data-en="Shifts all lyrics slightly. &lt;b&gt;+&lt;/b&gt; is later, &lt;b&gt;−&lt;/b&gt; is earlier.">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
-    <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button></div>
+    <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button><button class="btn ghost" id="bWordAuto" type="button" data-en="✦ Auto word timing">✦ 단어만 자동 맞추기</button></div>
     <div class="note" id="autoMsg" data-en="Finds where the vocals start and lines each lyric up with it (stereo audio works best). Lines you tapped or nudged stay put, so fixing a few and pressing it again refits the rest.">음원에서 보컬이 시작되는 지점을 찾아 줄마다 맞춰요 (스테레오 음원에서 더 정확해요). 직접 탭하거나 옮긴 줄은 그대로 두니까, 틀린 줄 몇 개만 고치고 다시 누르면 나머지를 그 기준으로 맞춰요.</div>
     <div class="row"><button class="btn ghost" id="bSync" data-en="Tap sync from start">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
     <label class="chk"><input type="checkbox" id="cSlow"> <span data-en="Play at 0.75× while tap syncing">탭 싱크할 때 0.75배속으로 재생</span></label>
+    <label class="chk"><input type="checkbox" id="cWordTap"> <span data-en="Tap word by word (instead of once per line)">단어 하나씩 탭하기 (줄마다 한 번 대신 단어마다)</span></label>
     <label class="chk"><input type="checkbox" id="cSnap"> <span data-en="Tap correction: snap taps to where the vocal starts">탭 보정 — 탭을 보컬이 시작되는 곳에 맞추기</span></label>
     <div class="note" id="syncNote" data-en="Default timing comes from the analysis (beat · bars · sections). For exact lines use tap sync: while it plays, &lt;b&gt;tap the screen the moment each line starts&lt;/b&gt;. Untapped lines follow the taps around them. Mis-tapped? Press &lt;b&gt;Undo&lt;/b&gt; (rewinds 3 s). Stopping half-way keeps the lines tapped so far.">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
     <details class="help" id="lineEd"><summary><span data-en="Fine-tune line timing">줄별 타이밍 다듬기</span>&nbsp;<span id="lineCnt" class="dim"></span></summary>
-      <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, or re-tap from there. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
+      <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, re-tap from there, or tap just that line word by word. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;, lines with tapped words &lt;b&gt;WORDS&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기, 그 줄만 단어별로 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b>, 단어를 탭한 줄에는 <b>단어</b> 표시가 붙어요.</div>
       <ol class="lines" id="lineList"></ol>
     </details>
   </div></section>
@@ -558,7 +561,11 @@ function applyTimes(){
   for(let i=1;i<n;i++)if(LINES[i].start<LINES[i-1].start+0.12)LINES[i].start=LINES[i-1].start+0.12;
   LINES.forEach((L,i)=>{const nx=i<n-1?LINES[i+1].start:SONG_END;L.end=Math.min(nx,L.start+BAR*4,SONG_END);if(L.end<=L.start)L.end=L.start+0.2;L.gi=i;L._c={}});
   const g=BEAT/4;
-  LINES.forEach(L=>{const dur=L.end-L.start,span=dur*(L.sec.role==='outro'?0.5:0.74);
+  LINES.forEach(L=>{
+    /* word timings from word-tap or auto word sync: offsets from the line start, so they move with the line */
+    const wo=wover[L.gi];if(wo&&wo.length===L.words.length){let prev=L.start;
+      L.words.forEach((w,k)=>{let tt=k?L.start+Math.max(0,wo[k]):L.start;tt=Math.min(tt,L.end-0.04*(L.words.length-k));if(tt<prev)tt=prev;w.t=tt;prev=tt});return}
+    const dur=L.end-L.start,span=dur*(L.sec.role==='outro'?0.5:0.74);
     const ws=L.words.map(w=>Math.max(1,Array.from(w.text).length)),tot=ws.reduce((a,b)=>a+b,0);let c=0,prev=L.start;
     L.words.forEach((w,k)=>{let tt=L.start+span*c/tot;c+=ws[k];if(k>0)tt=T0+Math.round((tt-T0)/g)*g;if(tt<prev)tt=prev;if(k===0)tt=L.start;w.t=tt;prev=tt})});
   SECS.forEach(s=>{const ls=LINES.filter(L=>L.sec===s);s.firstStart=ls.length?ls[0].start:s.start;s.lastEnd=ls.length?ls[ls.length-1].end:s.end});
@@ -572,10 +579,15 @@ function rebuildImpacts(){
 function syncKey(){return 'rz_sync_'+hash(lyricsText.trim()||'demo')}
 /* lines whose timing came from auto-sync (not pinned by the user); user-set lines are anchors when auto-sync runs again */
 let autoSet=new Set();
+/* per-word timing: wover[line]=[0, offset1, offset2…] (seconds after the line start); wauto = lines whose words came from auto word sync */
+let wover={},wauto=new Set();
+function wordKey(){return 'rz_word_'+hash(lyricsText.trim()||'demo')}
 function autoKey(){return 'rz_auto_'+hash(lyricsText.trim()||'demo')}
 function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}
-  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}}
-function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)))}
+  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}
+  wover={};wauto=new Set();try{const w=JSON.parse(lsGet(wordKey(),'{}'));for(const k in w.o||{})wover[+k]=w.o[k].map(Number);wauto=new Set((w.a||[]).map(Number))}catch(e){}}
+function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)));
+  lsSet(wordKey(),JSON.stringify({o:wover,a:[...wauto].filter(i=>wover[i])}))}
 
 /* ============================================================
    25 · AUTO-SYNC — line starts from the singing itself (beta).
@@ -631,7 +643,7 @@ function vocalEnvelope(L,R,sr){
 /* share of the song where the vocal envelope is near silent: vocal-led mixes ~0.45+, a centred lead playing throughout ~0.25 */
 function vocalConfidence(){const v=SONG&&SONG.vox;if(!v||!v.length)return 0;return v.filter(x=>x<5).length/v.length}
 
-const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2};   // tuned in-app on synthetic TTS mixes
+const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2,gapW:1,gapFull:0.6,gapPh:0.18};   // tuned in-app on synthetic TTS mixes
 function vocalOnsets(env){
   if(env._vc)return env._vc;
   const {vox,vfx}=env,hz=env.voxHz,cn=env.cns?env.cns.map(x=>x/100):null,n=vox.length,v=new Float32Array(n),fx=new Float32Array(n);
@@ -641,11 +653,13 @@ function vocalOnsets(env){
   if(st>=0&&n-st>=minOn)segs.push([st,n]);
   const peakNear=(c,a,b)=>{let bi=c,bv=-1;for(let i=Math.max(0,a);i<=Math.min(n-1,b);i++)if(fx[i]>bv){bv=fx[i];bi=i}return bi};
   const W=Math.round(0.12*hz);
-  segs.forEach(([a,b])=>{let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,v[i]);
+  /* line starts follow pauses: weight each phrase start by the silence before it, and only a real pause (≥ AS.gapPh)
+     makes it a phrase start — short gaps between words inside a line don't */
+  segs.forEach(([a,b],si)=>{let pk=0;for(let i=a;i<b;i++)pk=Math.max(pk,v[i]);const gap=si?(a-segs[si-1][1])/hz:9,gw=AS.gapW?0.4+0.6*clamp(gap/AS.gapFull):1;
     let s=a;for(let k=0;k<W&&s>0&&v[s-1]<v[s]&&v[s-1]>0.03;k++)s--;                                     // back down the rising edge
     s=peakNear(s,s-2,s+W);                                                                                // sharpen to the strongest spectral change
     if(cn){let g=s;const lim=Math.max(0,s-Math.round(0.3*hz));while(g>lim&&cn[g-1]>0.25&&v[g-1]<0.6*pk)g--;if(s-g>=2)s=g}   // unvoiced consonant first (ㅈ ㅊ ㅅ ㄲ…)
-    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk),ph:true});
+    C.push({t:s/hz,w:Math.min(1,0.45+0.55*pk)*gw,ph:gap>=AS.gapPh});
     for(let i=s+Math.round(0.5*hz);i<b-Math.round(0.25*hz);i++){                                        // breaths filled by reverb: a dip, then a strong change
       const top=Math.max(v[i],v[i+1],v[i+2]);let d=0;while(i-d-1>s&&v[i-d-1]<AS.dipR*top)d++;
       if(d>=Math.round(0.08*hz)&&top>0.25){const long=d>=Math.round(0.16*hz);C.push({t:peakNear(i,i-2,i+3)/hz,w:long?AS.reW:AS.reW/2,ph:long});i+=Math.round(0.35*hz)}}});
@@ -685,6 +699,43 @@ function autoSync(anchors={}){
 function snapToVocal(t){if(!SONG||!SONG.vox)return t;const {C}=vocalOnsets(SONG);let best=null,bs=1e9;
   for(const c of C){if(c.t<t-0.2)continue;if(c.t>t+0.12)break;const s=Math.abs(c.t-t)-c.w*0.1;if(s<bs){bs=s;best=c}}
   return best?Math.max(0,best.t-0.02):t}
+
+/* ---------- word starts inside lines (beta) ----------
+   For each line: the sung span runs from the line start to the last voiced frame before the next line. Syllable-level
+   onsets are spectral-flux peaks while voiced (pulled back over an unvoiced consonant when the centred noise track rises
+   just before). Each word after the first picks one onset — or keeps its syllable-proportional expected position — by a
+   small DP that prefers strong onsets near the expected position and keeps words in order ≥60 ms apart.
+   only(i) filters lines; results go to wover (offsets from the line start) and wauto. Returns the number of lines set. */
+const AW={vOn:30,rise:30,gapSig:0.6,skip:0,virt:0.3,minGap:0.06,dipW:0.3,cnBack:0.15};   // tuned in-app on per-word TTS mixes
+function autoWords(only){
+  if(!SONG||!SONG.vox)return 0;const hz=SONG.voxHz,v=SONG.vox,cn=SONG.cns,n=v.length;let done=0;
+  LINES.forEach((L,i)=>{const W=L.words.length;if(W<2||(only&&!only(i)))return;
+    const s=L.start+OFF,a=Math.max(0,Math.round(s*hz)),b=Math.min(n-6,Math.round((L.end+OFF)*hz));if(b-a<6)return;
+    let ve=a;for(let f=a;f<=b;f++)if(v[f]>AW.vOn)ve=f;                                            // end of singing (reverb tails stay under vOn)
+    const S=L.words.map(w=>Math.max(1,Math.round(syl(w.text)))),tot=S.reduce((x,y)=>x+y,0),D=Math.max(0.3,(ve-a)/hz),avg=D/tot;
+    /* syllable onsets: the voice dips and rises again at each syllable (deeper dips = gaps between words); pulled back
+       over an unvoiced consonant (ㅅ ㅈ ㅊ ㅎ…) when the centred noise track is already up just before */
+    const C=[];for(let f=a+3;f<ve;f++){if(!(v[f]<=v[f-1]&&v[f]<=v[f+1]))continue;
+      let up=0,pre=0;for(let q=1;q<=4;q++){up=Math.max(up,v[f+q]);pre=Math.max(pre,v[f-q])}
+      if(up-v[f]<AW.rise)continue;let g=f;
+      if(cn){const lim=f-Math.round(AW.cnBack*hz);while(g>lim&&g>a+1&&cn[g-1]>15&&cn[g-1]<=cn[g]+8&&v[g-1]<=v[f]+6)g--}
+      C.push({t:g/hz,w:Math.min(1,(up-v[f])/100+AW.dipW*Math.max(0,pre-v[f])/100+(v[f]<6?0.3:0))});f+=2}
+    /* DP: syllable j (1..tot-1) takes an onset in order, or a virtual onset at its proportional position; gaps should be
+       near the line's average syllable length, strong onsets are preferred, skipped strong onsets cost a little */
+    const M=C.length,INF=1e9,ph=[0];C.forEach((c,q)=>ph.push(ph[q]+c.w));
+    let prev=[{t:s,cost:0,ci:-1,bk:null}];
+    for(let j=1;j<tot;j++){const ex=s+avg*j,cur=[];
+      const cands=C.map((c,q)=>({t:c.t,w:c.w,ci:q})).filter(c=>Math.abs(c.t-ex)<Math.max(0.5,2.5*avg)).concat([{t:ex,w:-AW.virt,ci:null}]);
+      for(const c of cands){let best=null;
+        for(const p of prev){if(c.t<p.t+AW.minGap)continue;if(c.ci!=null&&p.ci!=null&&c.ci<=p.ci)continue;
+          const g=c.t-p.t,sk=c.ci!=null?AW.skip*(ph[c.ci]-ph[(p.ci==null?-1:p.ci)+1]):0,val=p.cost+0.5*((g-avg)/(AW.gapSig*avg))**2-c.w+Math.max(0,sk);
+          if(!best||val<best.cost)best={t:c.t,cost:val,ci:c.ci!=null?c.ci:p.ci,bk:p}}
+        if(best)cur.push(best)}
+      if(!cur.length)return;cur.sort((x,y)=>x.cost-y.cost);prev=cur.slice(0,60)}
+    let node=prev.reduce((x,y)=>y.cost<x.cost?y:x);const on=new Array(tot);for(let j=tot-1;j>=0;j--){on[j]=node.t;node=node.bk}
+    let k0=0;wover[i]=S.map(x=>{const t=on[k0];k0+=x;return +(t-s).toFixed(3)});wover[i][0]=0;wauto.add(i);done++});
+  return done;
+}
 
 /* ============================================================
    30 · DIRECTIONS — art-direction presets
@@ -1690,12 +1741,12 @@ function projName(){
   if(AUDIO_TITLE)return AUDIO_TITLE;
   const ln=lsGet('rz_lyrics','').split('\n').map(s=>s.trim()).find(s=>s&&!parseHeader(s));return ln?ln.replace(/[*()]/g,'').slice(0,24):T('새 프로젝트','New project')}
 function projSnapshot(){const keys={};PKEYS.forEach(k=>{const v=lsGet(k,null);if(v!=null)keys[k]=v});
-  const sync={};[syncKey(),autoKey()].forEach(k=>{const v=lsGet(k,null);if(v!=null)sync[k]=v});return {app:PFILE,v:1,name:projName(),keys,sync}}
+  const sync={};[syncKey(),autoKey(),wordKey()].forEach(k=>{const v=lsGet(k,null);if(v!=null)sync[k]=v});return {app:PFILE,v:1,name:projName(),keys,sync}}
 function projSaveCur(){if(!PROJ_ID||PROJ_LEAVING)return;
   clearTimeout(deb);const lv=$('lyrics').value;if(lv!==lyricsText){lyricsText=lv;lsSet('rz_lyrics',lv)}   // flush typing still inside the input debounce
  lsSet('rz_proj_'+PROJ_ID,JSON.stringify(projSnapshot()));projTouch()}
 function projApply(sn){PKEYS.forEach(lsDel);Object.entries(sn.keys||{}).forEach(([k,v])=>{if(PKEYS.includes(k))lsSet(k,String(v))});
-  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_(sync|auto)_\d+$/.test(k))lsSet(k,String(v))})}
+  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_(sync|auto|word)_\d+$/.test(k))lsSet(k,String(v))})}
 function projOpen(id){PROJ_LEAVING=true;lsSet('rz_cur',id);location.reload()}
 function projTouch(){if(PROJ_LEAVING)return;const p=PROJS.find(x=>x.id===PROJ_ID);if(!p)return;p.name=projName();p.updated=Date.now();projSaveList();projRender()}
 
@@ -1935,10 +1986,17 @@ addEventListener('keydown',e=>{if(!$('setup').classList.contains('hidden'))retur
 /* ---------- tap sync: start from any line, undo, 0.75× mode ----------
    Taps overwrite one line at a time, so stopping half-way keeps every earlier tap and every later line's old value. */
 let SLOW=lsGet('rz_slow','0')==='1',SNAP=lsGet('rz_snap','1')==='1',syncHist=[],tapWall=0,LSEL=-1;
+/* word mode: each tap marks the next word; the first word's tap is the line start. SYNC_ONE ≥ 0: tap just that line. */
+let WORDTAP=lsGet('rz_wordtap','0')==='1',SYNC_WORD=false,SYNC_ONE=-1,syncW=0,wbuf=[];
 function syncShow(){const L=LINES[syncIdx];
-  $('syncInfo').innerHTML=L?`<div class="k">TAP SYNC · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>${T('다음 줄이 시작될 때 탭','Tap when this line starts')}: <b>${esc(L.text)}</b>`:T('완료!','Done!');
+  if(!L){$('syncInfo').innerHTML=T('완료!','Done!');$('syncUndo').disabled=!syncHist.length;return}
+  const head=`<div class="k">TAP SYNC${SYNC_WORD?' · '+T('단어','WORDS'):''} · ${syncIdx+1} / ${LINES.length} · ${esc(L.sec.label)}${RATE!==1?' · '+RATE+'×':''}</div>`;
+  if(SYNC_WORD&&L.words.length>1)$('syncInfo').innerHTML=head+T('단어가 나올 때마다 탭','Tap as each word is sung')+': '+
+    L.words.map((w,k)=>`<span class="${k<syncW?'wd':k===syncW?'wc':'wn'}">${esc(w.text)}</span>`).join(' ');
+  else $('syncInfo').innerHTML=head+`${T('다음 줄이 시작될 때 탭','Tap when this line starts')}: <b>${esc(L.text)}</b>`;
   $('syncUndo').disabled=!syncHist.length}
-function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,LINES.length-1);
+function startSync(from,one){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,LINES.length-1);
+  SYNC_ONE=one?from:-1;SYNC_WORD=!!one||WORDTAP;syncW=0;wbuf=[];
   syncMode=true;syncIdx=from;syncHist=[];tapWall=0;hideSetup();$('hud').classList.add('hidden');$('syncBar').classList.remove('hidden');
   setRate(SLOW?0.75:1);syncShow();
   const L=LINES[from],lead=Math.min(L.start-3,from>0?LINES[from-1].start-0.3:Infinity);   // start a little before the previous line so there's context
@@ -1948,13 +2006,27 @@ function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,
   let n=3;const tick=()=>{if(!syncMode)return;if(n===0){$('syncInfo').innerHTML='<div class="k">TAP SYNC</div>'+T('지금 재생!','Play now!');startPlay();setTimeout(()=>{if(syncMode)syncShow()},700);return}
     const tt=fmtT(at).replace(/\.\d+$/,'');$('syncInfo').innerHTML=`<div class="k">TAP SYNC · ${n}</div>`+T(`다른 앱에서 노래를 <b>${tt}</b>에 맞춰 두고, 0이 되는 순간 재생하세요`,`Cue the song to <b>${tt}</b> in your music app and press play at 0`);n--;syncCD=setTimeout(tick,1000)};tick()}
 let syncCD=0;
-function syncTap(){if(syncIdx>=LINES.length||!playing)return;if(ytActive()&&YT_AD){const e=$('ytAd');e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash');return}   // no taps while an ad playsconst w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
-  let t=now()-0.08*RATE;if(SNAP&&hasAudio)t=snapToVocal(t);   // tap correction: nearest vocal onset within −0.2/+0.12 s
-  syncHist.push({i:syncIdx,prev:overrides[syncIdx],auto:autoSet.has(syncIdx)});overrides[syncIdx]=t-OFF;autoSet.delete(syncIdx);applyTimes();saveOverrides();syncIdx++;syncShow();
+const syncSnap=i=>({i,prev:overrides[i],auto:autoSet.has(i),wo:wover[i],wa:wauto.has(i)});
+function syncRestore(h){if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;if(h.auto)autoSet.add(h.i);else autoSet.delete(h.i);
+  if(h.wo)wover[h.i]=h.wo;else delete wover[h.i];if(h.wa)wauto.add(h.i);else wauto.delete(h.i)}
+function syncTap(){if(syncIdx>=LINES.length||!playing)return;
+  if(ytActive()&&YT_AD){const e=$('ytAd');e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash');return}   // no taps while an ad plays
+  const w=performance.now();if(w-tapWall<120)return;tapWall=w;                                                              // ignore accidental double taps
+  const i=syncIdx,L=LINES[i],midWord=SYNC_WORD&&syncW>0;
+  let t=now()-0.08*RATE;if(SNAP&&hasAudio&&!midWord)t=snapToVocal(t);   // tap correction (line starts only): nearest vocal onset within −0.2/+0.12 s
+  if(SYNC_WORD&&L.words.length>1){
+    if(syncW===0){syncHist.push(syncSnap(i));overrides[i]=t-OFF;autoSet.delete(i);wbuf=[0]}
+    else wbuf.push(+Math.max(wbuf[wbuf.length-1]+0.05,t-OFF-overrides[i]).toFixed(3));
+    if(++syncW<L.words.length){applyTimes();syncShow();return}
+    wover[i]=wbuf;wauto.delete(i);syncW=0;wbuf=[]}
+  else{syncHist.push(syncSnap(i));overrides[i]=t-OFF;autoSet.delete(i)}
+  applyTimes();saveOverrides();syncIdx++;syncShow();
+  if(SYNC_ONE>=0){setTimeout(()=>{if(syncMode){endSync();pausePlay();showSetup()}},500);return}   // single line done
   if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
-function syncUndo(){const h=syncHist.pop();if(!h)return;if(h.prev==null)delete overrides[h.i];else overrides[h.i]=h.prev;if(h.auto)autoSet.add(h.i);applyTimes();saveOverrides();
+/* undo: mid-line (word mode) restarts that line; otherwise steps back one line. Either way rewinds 3 s. */
+function syncUndo(){const h=syncHist.pop();if(!h)return;syncRestore(h);syncW=0;wbuf=[];applyTimes();saveOverrides();
   syncIdx=h.i;syncShow();seekTo(Math.max(0,now()-3));if(!playing)startPlay()}
-function endSync(){clearTimeout(syncCD);syncMode=false;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
+function endSync(){clearTimeout(syncCD);syncMode=false;syncW=0;wbuf=[];SYNC_ONE=-1;setRate(1);saveOverrides();$('syncBar').classList.add('hidden');refreshInfo()}
 $('bSync').onclick=()=>startSync(0);
 /* auto-sync (25_autosync): lines you tapped or nudged stay as anchors, the rest are fitted between them; one-step undo */
 let AUTO_PREV=null;
@@ -1962,20 +2034,27 @@ $('bAuto').onclick=()=>{const out=$('autoMsg');
   if(!hasAudio||!SONG.vox){out.innerHTML=T('<b>음원 파일을 넣어야</b> 자동 싱크를 할 수 있어요.','Auto-sync needs an <b>audio file</b>.');return}
   const anchors={};Object.keys(overrides).forEach(k=>{const i=+k;if(i<LINES.length&&!autoSet.has(i))anchors[i]=overrides[i]+OFF});
   const r=autoSync(anchors);if(!r){out.innerHTML=T('<b>보컬을 충분히 찾지 못했어요.</b> 탭 싱크로 맞춰 주세요.','<b>Not enough vocals found.</b> Use tap sync instead.');return}
-  const apply=()=>{AUTO_PREV={o:{...overrides},a:[...autoSet]};
-    r.times.forEach((t,i)=>{if(!(i in anchors)){overrides[i]=t-OFF;autoSet.add(i)}});applyTimes();saveOverrides();refreshInfo();
+  const apply=()=>{AUTO_PREV={o:{...overrides},a:[...autoSet],wo:JSON.parse(JSON.stringify(wover)),wa:[...wauto]};
+    r.times.forEach((t,i)=>{if(!(i in anchors)){overrides[i]=t-OFF;autoSet.add(i)}});applyTimes();autoWords(i=>!wover[i]||wauto.has(i));applyTimes();saveOverrides();refreshInfo();
     const n=LINES.length-r.anchored,keep=r.anchored?T(` (직접 맞춘 ${r.anchored}줄은 그대로)`,` (your ${r.anchored} set lines kept)`):'';
-    out.innerHTML=T(`<b>${n}줄</b>을 보컬이 시작되는 곳에 맞췄어요${keep}${SONG.voxSt?'':' · 모노 음원이라 정확도가 낮아요'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄을 다시 탭한 뒤 <b>자동 싱크</b>를 한 번 더 누르세요 — 고친 줄을 기준으로 나머지를 다시 맞춰요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,
-      `Matched <b>${n} lines</b> to where the vocals start${keep}${SONG.voxSt?'':' · mono audio, less accurate'}. Play it back; fix a wrong line in <b>Fine-tune line timing</b> or re-tap it, then press <b>Auto-sync</b> again — the rest is refitted around your fixes. <a href="#" id="autoUndo">Undo auto-sync</a>`);
-    $('autoUndo').onclick=e=>{e.preventDefault();if(AUTO_PREV){overrides=AUTO_PREV.o;autoSet=new Set(AUTO_PREV.a)}applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
+    out.innerHTML=T(`<b>${n}줄</b>과 그 단어들을 보컬이 시작되는 곳에 맞췄어요${keep}${SONG.voxSt?'':' · 모노 음원이라 정확도가 낮아요'}. 재생해서 확인하고, 틀린 줄은 아래 <b>줄별 타이밍 다듬기</b>에서 고치거나 그 줄을 다시 탭한 뒤 <b>자동 싱크</b>를 한 번 더 누르세요 — 고친 줄을 기준으로 나머지를 다시 맞춰요. <a href="#" id="autoUndo">자동 싱크 전으로 되돌리기</a>`,
+      `Matched <b>${n} lines</b> (and their words) to where the vocals start${keep}${SONG.voxSt?'':' · mono audio, less accurate'}. Play it back; fix a wrong line in <b>Fine-tune line timing</b> or re-tap it, then press <b>Auto-sync</b> again — the rest is refitted around your fixes. <a href="#" id="autoUndo">Undo auto-sync</a>`);
+    $('autoUndo').onclick=e=>{e.preventDefault();if(AUTO_PREV){overrides=AUTO_PREV.o;autoSet=new Set(AUTO_PREV.a);wover=AUTO_PREV.wo;wauto=new Set(AUTO_PREV.wa)}applyTimes();saveOverrides();refreshInfo();out.textContent=T('자동 싱크 전으로 되돌렸어요.','Auto-sync undone.')}};
   if(r.confidence<0.33&&!r.anchored){   // a centred instrument plays throughout: the result is likely wrong, so ask first
     out.innerHTML=T('<b>이 곡은 자동 싱크가 틀릴 가능성이 커요.</b> 보컬 말고도 가운데에서 계속 나는 악기가 많아요. <b>탭 싱크</b>를 추천해요 — 탭 보정이 켜져 있으면 탭을 보컬 시작점에 맞춰 줘요. 몇 줄만 탭한 뒤 자동 싱크를 누르면 탭한 줄을 기준으로 맞춰요.',
       '<b>Auto-sync is likely to be wrong for this song</b> — a centred instrument plays alongside the vocals. <b>Tap sync</b> is recommended (tap correction snaps taps to vocal starts). Or tap a few lines, then auto-sync around them.')+
       `<div class="row"><button class="btn ghost" id="autoForce">${T('그래도 적용','Apply anyway')}</button></div>`;$('autoForce').onclick=apply;return}
   apply()};
 $('syncUndo').onclick=e=>{e.stopPropagation();syncUndo()};
+/* words only: refit word timings inside the current line timings (keeps lines whose words you tapped) */
+$('bWordAuto').onclick=()=>{const out=$('autoMsg');
+  if(!hasAudio||!SONG.vox){out.innerHTML=T('<b>음원 파일을 넣어야</b> 단어를 자동으로 맞출 수 있어요. 유튜브 모드에서는 <b>단어 하나씩 탭하기</b>를 켜고 탭 싱크하세요.','Auto word timing needs an <b>audio file</b>. In YouTube mode, turn on <b>Tap word by word</b> and tap sync.');return}
+  const prev={wo:JSON.parse(JSON.stringify(wover)),wa:[...wauto]};const n=autoWords(i=>!wover[i]||wauto.has(i));applyTimes();saveOverrides();refreshInfo();
+  out.innerHTML=T(`<b>${n}줄</b>의 단어를 음절이 시작되는 곳에 맞췄어요 (단어를 직접 탭한 줄은 그대로). <a href="#" id="wordUndo">되돌리기</a>`,`Fitted the words of <b>${n} lines</b> to where syllables start (lines whose words you tapped are kept). <a href="#" id="wordUndo">Undo</a>`);
+  $('wordUndo').onclick=e=>{e.preventDefault();wover=prev.wo;wauto=new Set(prev.wa);applyTimes();saveOverrides();refreshInfo();out.textContent=T('되돌렸어요.','Undone.')}};
+$('cWordTap').checked=WORDTAP;$('cWordTap').onchange=e=>{WORDTAP=e.target.checked;lsSet('rz_wordtap',WORDTAP?'1':'0')};
 $('syncStop').onclick=e=>{e.stopPropagation();endSync();pausePlay();showSetup()};
-$('bSyncReset').onclick=()=>{overrides={};autoSet.clear();saveOverrides();applyTimes();refreshInfo()};
+$('bSyncReset').onclick=()=>{overrides={};autoSet.clear();wover={};wauto.clear();saveOverrides();applyTimes();refreshInfo()};
 $('cSlow').checked=SLOW;$('cSlow').onchange=e=>{SLOW=e.target.checked;lsSet('rz_slow',SLOW?'1':'0')};
 $('cSnap').checked=SNAP;$('cSnap').onchange=e=>{SNAP=e.target.checked;lsSet('rz_snap',SNAP?'1':'0')};
 
@@ -1985,8 +2064,8 @@ function renderLines(){const box=$('lineList');if(!box)return;if(LSEL>=LINES.len
   let h='',ps=null;
   LINES.forEach((L,i)=>{if(L.sec!==ps){ps=L.sec;h+=`<li class="lsec">${esc(L.sec.label)}</li>`}
     const pin=overrides[i]!=null,au=pin&&autoSet.has(i),on=i===LSEL;
-    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${au?T('<span class="pn pa">자동</span>','<span class="pn pa">AUTO</span>'):pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
-      (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05${T('초','s')}</button><button class="btn ghost" data-a="+">+0.05${T('초','s')}</button><button class="btn ghost" data-a="play">▶ ${T('듣기','Listen')}</button><button class="btn ghost" data-a="tap">${T('여기부터 탭','Tap from here')}</button>${pin?`<button class="btn ghost" data-a="auto">${T('자동으로','Auto')}</button>`:''}</div>`:'')+'</li>'});
+    h+=`<li class="ln${on?' on':''}"><button class="lt" data-i="${i}" aria-expanded="${on}"><span class="tm">${fmtT(L.start+OFF)}</span><span class="tx">${esc(L.text)}</span>${wover[i]&&!wauto.has(i)?T('<span class="pn pw">단어</span>','<span class="pn pw">WORDS</span>'):''}${au?T('<span class="pn pa">자동</span>','<span class="pn pa">AUTO</span>'):pin?T('<span class="pn">고정</span>','<span class="pn">SET</span>'):''}</button>`+
+      (on?`<div class="lc"><button class="btn ghost" data-a="-">−0.05${T('초','s')}</button><button class="btn ghost" data-a="+">+0.05${T('초','s')}</button><button class="btn ghost" data-a="play">▶ ${T('듣기','Listen')}</button><button class="btn ghost" data-a="tap">${T('여기부터 탭','Tap from here')}</button><button class="btn ghost" data-a="wtap">${T('이 줄 단어 탭','Tap this line\'s words')}</button>${wover[i]?`<button class="btn ghost" data-a="wclr">${T('단어 타이밍 지우기','Clear word timing')}</button>`:''}${pin?`<button class="btn ghost" data-a="auto">${T('자동으로','Auto')}</button>`:''}</div>`:'')+'</li>'});
   box.innerHTML=h;$('lineCnt').textContent=LINES.length?T(`· ${LINES.length}줄`,`· ${LINES.length} lines`):''}
 $('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||EXPORTING)return;
   if(b.classList.contains('lt')){const i=+b.dataset.i;LSEL=LSEL===i?-1:i;renderLines();return}
@@ -1994,7 +2073,9 @@ $('lineList').addEventListener('click',e=>{const b=e.target.closest('button');if
   if(a==='-'||a==='+'){overrides[i]=Math.max(0,L.start+(a==='+'?0.05:-0.05));autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}   // nudging pins the line; neighbours re-interpolate
   else if(a==='auto'){delete overrides[i];autoSet.delete(i);applyTimes();saveOverrides();refreshInfo()}
   else if(a==='play'){hideSetup();seekTo(Math.max(0,L.start+OFF-1.5));startPlay();pokeHud()}
-  else if(a==='tap')startSync(i)});
+  else if(a==='tap')startSync(i);
+  else if(a==='wtap')startSync(i,true);
+  else if(a==='wclr'){delete wover[i];wauto.delete(i);applyTimes();saveOverrides();refreshInfo()}});
 
 /* ---------- saving: fast offline MP4 (75_export) first, realtime recording as the fallback ---------- */
 let DL=null;try{if(window.claude&&window.claude.use)window.claude.use('downloads').then(x=>{DL=x}).catch(()=>{})}catch(e){}

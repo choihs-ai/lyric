@@ -91,6 +91,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 .lines .tm{font:700 12px "Space Mono",ui-monospace,Menlo,monospace;color:var(--mute);min-width:62px}
 .lines .tx{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lines .pn{font:700 10px "Space Mono",ui-monospace,Menlo,monospace;background:var(--red);color:#fff;padding:2px 6px;letter-spacing:.06em}
+.lines .pn.pw{background:#2b2825;color:#fff;margin-right:4px}
 .lines .pn.pa{background:transparent;color:var(--mute);border:1px solid #3a3632}
 .lines .lc{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 12px}
 .lines .lc .btn{min-height:44px;padding:0 12px;font-size:13px;flex:1 1 auto}
@@ -110,6 +111,7 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncInfo .k{font:700 11px "Space Mono",ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.85}
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
+#syncInfo .wd{opacity:.5}#syncInfo .wn{opacity:.85}#syncInfo .wc{background:#fff;color:#c21d16;font-weight:800;padding:0 4px}
 #ytBox{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:200px;height:200px;z-index:12;background:#000;border:1px solid #3a3632}
 #ytAd{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);z-index:13;background:#ffd400;color:#070707;
   font:700 13px -apple-system,"Apple SD Gothic Neo",sans-serif;padding:10px 14px;max-width:calc(100vw - 32px);text-align:center}
@@ -240,14 +242,15 @@ Outro
     <h2 data-en="Sync">싱크</h2>
     <div class="row"><input type="range" id="rOff" min="-0.6" max="0.6" step="0.01" value="0"><span class="val" id="offVal">±0.00초</span></div>
     <div class="note" data-en="Shifts all lyrics slightly. &lt;b&gt;+&lt;/b&gt; is later, &lt;b&gt;−&lt;/b&gt; is earlier.">전체 가사를 앞뒤로 미세 조정해요. <b>+</b>는 늦게, <b>−</b>는 빨리 나와요.</div>
-    <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button></div>
+    <div class="row"><button class="btn" id="bAuto" data-en="✦ Auto-sync (beta)">✦ 자동 싱크 (베타)</button><button class="btn ghost" id="bWordAuto" type="button" data-en="✦ Auto word timing">✦ 단어만 자동 맞추기</button></div>
     <div class="note" id="autoMsg" data-en="Finds where the vocals start and lines each lyric up with it (stereo audio works best). Lines you tapped or nudged stay put, so fixing a few and pressing it again refits the rest.">음원에서 보컬이 시작되는 지점을 찾아 줄마다 맞춰요 (스테레오 음원에서 더 정확해요). 직접 탭하거나 옮긴 줄은 그대로 두니까, 틀린 줄 몇 개만 고치고 다시 누르면 나머지를 그 기준으로 맞춰요.</div>
     <div class="row"><button class="btn ghost" id="bSync" data-en="Tap sync from start">처음부터 탭 싱크</button><button class="btn ghost" id="bSyncReset">싱크 초기화</button></div>
     <label class="chk"><input type="checkbox" id="cSlow"> <span data-en="Play at 0.75× while tap syncing">탭 싱크할 때 0.75배속으로 재생</span></label>
+    <label class="chk"><input type="checkbox" id="cWordTap"> <span data-en="Tap word by word (instead of once per line)">단어 하나씩 탭하기 (줄마다 한 번 대신 단어마다)</span></label>
     <label class="chk"><input type="checkbox" id="cSnap"> <span data-en="Tap correction: snap taps to where the vocal starts">탭 보정 — 탭을 보컬이 시작되는 곳에 맞추기</span></label>
     <div class="note" id="syncNote" data-en="Default timing comes from the analysis (beat · bars · sections). For exact lines use tap sync: while it plays, &lt;b&gt;tap the screen the moment each line starts&lt;/b&gt;. Untapped lines follow the taps around them. Mis-tapped? Press &lt;b&gt;Undo&lt;/b&gt; (rewinds 3 s). Stopping half-way keeps the lines tapped so far.">기본 타이밍은 곡 분석(박자 · 마디 · 구간 경계)으로 자동 배치돼요. 줄 단위로 정확히 맞추려면 탭 싱크: 재생되는 동안 <b>각 줄이 시작되는 순간 화면을 탭</b>하세요. 탭하지 않은 줄은 앞뒤 탭에 맞춰 자동으로 따라와요. 잘못 탭했으면 <b>되돌리기</b>(3초 뒤로 감기)를 누르세요. 중간에 끝내도 그때까지 탭한 줄은 저장돼요.</div>
     <details class="help" id="lineEd"><summary><span data-en="Fine-tune line timing">줄별 타이밍 다듬기</span>&nbsp;<span id="lineCnt" class="dim"></span></summary>
-      <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, or re-tap from there. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b> 표시가 붙어요.</div>
+      <div class="note" style="margin:0 0 6px" data-en="Tap a line to nudge it by 0.05 s, listen, re-tap from there, or tap just that line word by word. Lines you touched are marked &lt;b&gt;SET&lt;/b&gt;, lines with tapped words &lt;b&gt;WORDS&lt;/b&gt;.">줄을 누르면 0.05초씩 앞뒤로 옮기기, 들어 보기, 그 줄부터 다시 탭하기, 그 줄만 단어별로 탭하기를 할 수 있어요. 손댄 줄에는 <b>고정</b>, 단어를 탭한 줄에는 <b>단어</b> 표시가 붙어요.</div>
       <ol class="lines" id="lineList"></ol>
     </details>
   </div></section>

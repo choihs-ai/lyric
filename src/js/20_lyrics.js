@@ -156,7 +156,11 @@ function applyTimes(){
   for(let i=1;i<n;i++)if(LINES[i].start<LINES[i-1].start+0.12)LINES[i].start=LINES[i-1].start+0.12;
   LINES.forEach((L,i)=>{const nx=i<n-1?LINES[i+1].start:SONG_END;L.end=Math.min(nx,L.start+BAR*4,SONG_END);if(L.end<=L.start)L.end=L.start+0.2;L.gi=i;L._c={}});
   const g=BEAT/4;
-  LINES.forEach(L=>{const dur=L.end-L.start,span=dur*(L.sec.role==='outro'?0.5:0.74);
+  LINES.forEach(L=>{
+    /* word timings from word-tap or auto word sync: offsets from the line start, so they move with the line */
+    const wo=wover[L.gi];if(wo&&wo.length===L.words.length){let prev=L.start;
+      L.words.forEach((w,k)=>{let tt=k?L.start+Math.max(0,wo[k]):L.start;tt=Math.min(tt,L.end-0.04*(L.words.length-k));if(tt<prev)tt=prev;w.t=tt;prev=tt});return}
+    const dur=L.end-L.start,span=dur*(L.sec.role==='outro'?0.5:0.74);
     const ws=L.words.map(w=>Math.max(1,Array.from(w.text).length)),tot=ws.reduce((a,b)=>a+b,0);let c=0,prev=L.start;
     L.words.forEach((w,k)=>{let tt=L.start+span*c/tot;c+=ws[k];if(k>0)tt=T0+Math.round((tt-T0)/g)*g;if(tt<prev)tt=prev;if(k===0)tt=L.start;w.t=tt;prev=tt})});
   SECS.forEach(s=>{const ls=LINES.filter(L=>L.sec===s);s.firstStart=ls.length?ls[0].start:s.start;s.lastEnd=ls.length?ls[ls.length-1].end:s.end});
@@ -170,7 +174,12 @@ function rebuildImpacts(){
 function syncKey(){return 'rz_sync_'+hash(lyricsText.trim()||'demo')}
 /* lines whose timing came from auto-sync (not pinned by the user); user-set lines are anchors when auto-sync runs again */
 let autoSet=new Set();
+/* per-word timing: wover[line]=[0, offset1, offset2…] (seconds after the line start); wauto = lines whose words came from auto word sync */
+let wover={},wauto=new Set();
+function wordKey(){return 'rz_word_'+hash(lyricsText.trim()||'demo')}
 function autoKey(){return 'rz_auto_'+hash(lyricsText.trim()||'demo')}
 function loadOverrides(){overrides={};try{const o=JSON.parse(lsGet(syncKey(),'{}'));for(const k in o)overrides[+k]=o[k]}catch(e){}
-  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}}
-function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)))}
+  try{autoSet=new Set(JSON.parse(lsGet(autoKey(),'[]')).map(Number))}catch(e){autoSet=new Set()}
+  wover={};wauto=new Set();try{const w=JSON.parse(lsGet(wordKey(),'{}'));for(const k in w.o||{})wover[+k]=w.o[k].map(Number);wauto=new Set((w.a||[]).map(Number))}catch(e){}}
+function saveOverrides(){lsSet(syncKey(),JSON.stringify(overrides));lsSet(autoKey(),JSON.stringify([...autoSet].filter(i=>overrides[i]!=null)));
+  lsSet(wordKey(),JSON.stringify({o:wover,a:[...wauto].filter(i=>wover[i])}))}

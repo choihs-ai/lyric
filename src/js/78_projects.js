@@ -29,12 +29,12 @@ function projName(){
   if(AUDIO_TITLE)return AUDIO_TITLE;
   const ln=lsGet('rz_lyrics','').split('\n').map(s=>s.trim()).find(s=>s&&!parseHeader(s));return ln?ln.replace(/[*()]/g,'').slice(0,24):T('새 프로젝트','New project')}
 function projSnapshot(){const keys={};PKEYS.forEach(k=>{const v=lsGet(k,null);if(v!=null)keys[k]=v});
-  const sync={};[syncKey(),autoKey()].forEach(k=>{const v=lsGet(k,null);if(v!=null)sync[k]=v});return {app:PFILE,v:1,name:projName(),keys,sync}}
+  const sync={};[syncKey(),autoKey(),wordKey()].forEach(k=>{const v=lsGet(k,null);if(v!=null)sync[k]=v});return {app:PFILE,v:1,name:projName(),keys,sync}}
 function projSaveCur(){if(!PROJ_ID||PROJ_LEAVING)return;
   clearTimeout(deb);const lv=$('lyrics').value;if(lv!==lyricsText){lyricsText=lv;lsSet('rz_lyrics',lv)}   // flush typing still inside the input debounce
  lsSet('rz_proj_'+PROJ_ID,JSON.stringify(projSnapshot()));projTouch()}
 function projApply(sn){PKEYS.forEach(lsDel);Object.entries(sn.keys||{}).forEach(([k,v])=>{if(PKEYS.includes(k))lsSet(k,String(v))});
-  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_(sync|auto)_\d+$/.test(k))lsSet(k,String(v))})}
+  Object.entries(sn.sync||{}).forEach(([k,v])=>{if(/^rz_(sync|auto|word)_\d+$/.test(k))lsSet(k,String(v))})}
 function projOpen(id){PROJ_LEAVING=true;lsSet('rz_cur',id);location.reload()}
 function projTouch(){if(PROJ_LEAVING)return;const p=PROJS.find(x=>x.id===PROJ_ID);if(!p)return;p.name=projName();p.updated=Date.now();projSaveList();projRender()}
 
