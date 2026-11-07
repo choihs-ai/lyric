@@ -54,11 +54,11 @@ function refreshInfo(){
 /* ---------- playback ---------- */
 const au=$('au');let hasAudio=false,playing=false,clock0=0,clockT=0,actx=null,msDest=null;
 let syncMode=false,syncIdx=0,recorder=null,recChunks=[],recording=false,hudTimer=0,RATE=1,AUDIO_FILE=null;
-function now(){if(YT_ON)return ytNow();if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
-function setRate(r){if(r===RATE)return;if(YT_ON){RATE=r;try{YTP.setPlaybackRate(r)}catch(e){}return}if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
-function seekTo(s){s=clamp(s,0,SONG_END);if(YT_ON){try{YTP.seekTo(s,true)}catch(e){}ytLast={rep:-1,wall:0,out:null};return}if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
-function startPlay(){hideEnd();if(YT_ON){try{YTP.playVideo()}catch(e){}return Promise.resolve()}if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
-function pausePlay(){if(YT_ON){try{YTP.pauseVideo()}catch(e){}playing=false;return}if(hasAudio)au.pause();else clockT=now();playing=false}
+function now(){if(ytActive())return ytNow();if(hasAudio)return au.currentTime||0;return playing?clockT+(performance.now()/1000-clock0)*RATE:clockT}
+function setRate(r){if(r===RATE)return;if(ytActive()){RATE=r;try{YTP.setPlaybackRate(r)}catch(e){}return}if(!hasAudio){clockT=now();clock0=performance.now()/1000}RATE=r;if(hasAudio){try{au.playbackRate=r}catch(e){}}}
+function seekTo(s){s=clamp(s,0,SONG_END);if(ytActive()){try{YTP.seekTo(s,true)}catch(e){}ytLast={rep:-1,wall:0,out:null};return}if(hasAudio){try{au.currentTime=s}catch(e){}}else{clockT=s;clock0=performance.now()/1000}}
+function startPlay(){hideEnd();if(ytActive()){try{YTP.playVideo()}catch(e){}return Promise.resolve()}if(hasAudio){if(actx&&actx.state!=='running')actx.resume();return au.play().then(()=>{playing=true}).catch(()=>{playing=false})}clock0=performance.now()/1000;playing=true;return Promise.resolve()}
+function pausePlay(){if(ytActive()){try{YTP.pauseVideo()}catch(e){}playing=false;return}if(hasAudio)au.pause();else clockT=now();playing=false}
 function ensureGraph(){if(actx)return;try{const AC=window.AudioContext||window.webkitAudioContext;actx=new AC();const src=actx.createMediaElementSource(au);src.connect(actx.destination);if(actx.createMediaStreamDestination){msDest=actx.createMediaStreamDestination();src.connect(msDest)}}catch(e){actx=null;msDest=null}}
 function onEnded(){playing=false;if(recording){stopRec();showSetup();return}if(syncMode){endSync();showSetup();return}showEnd()}   // plain playback ends on replay/save/settings, not the long form
 function showEnd(){$('hud').classList.add('hidden');$('endBar').classList.remove('hidden')}
@@ -68,7 +68,7 @@ function showSetup(){hideEnd();$('setup').classList.remove('hidden');$('hud').cl
 function hideSetup(){$('setup').classList.add('hidden')}
 function pokeHud(){if(syncMode)return;const h=$('hud');h.classList.remove('hidden');h.classList.remove('fade');clearTimeout(hudTimer);hudTimer=setTimeout(()=>h.classList.add('fade'),2600)}
 function updateHud(t){$('seek').value=t;const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,'0');$('tc').textContent=`${m}:${s}`;$('hPlay').textContent=playing?'❚❚':'▶';$('hMenu').textContent=recording?T('녹화 중지','Stop rec'):T('설정','Settings')}
-function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&!YT_ON&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
+function loop(){if(!EXPORTING){const t=now();if(!hasAudio&&!ytActive()&&playing&&t>=SONG_END){clockT=SONG_END;onEnded()}frame(t);updateHud(t)}requestAnimationFrame(loop)}   // the offline exporter owns the canvas while it runs
 
 /* ---------- inputs ---------- */
 let deb=0;
@@ -81,7 +81,7 @@ $('fAudio').onchange=e=>{const f=e.target.files[0];if(f)loadAudioFile(f,true)};
 async function loadAudioFile(f,store){
   if(au.src)try{URL.revokeObjectURL(au.src)}catch(x){}
   au.src=URL.createObjectURL(f);au.load();hasAudio=true;playing=false;AUDIO_FILE=f;RATE=1;AUDIO_TITLE=fileTitle(f.name);
-  if(YT_ON||YTP)ytClose();if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent='';$('ytMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
+  if(YT_ON||YTP){ytClose();$('ytPrimeRow').classList.add('hidden')}if(MANUAL){MANUAL=null;lsDel('rz_manual');$('manualMsg').textContent='';$('ytMsg').textContent=''}saveMeta();if(store)projStoreAudio(f);
   $('audioName').innerHTML=`<b>${esc(f.name)}</b> · ${T('준비됨','ready')}`;
   const key='rz_an6_'+f.name+'_'+f.size;let an=null;try{an=JSON.parse(lsGet(key,'null'))}catch(x){}
   if(!an){$('anInfo').innerHTML=T('<b>곡 분석 중…</b> 박자 · 킥 · 스네어 · 구간 · 분위기 · 보컬 (몇 초 걸려요)','<b>Analysing…</b> tempo · kicks · snares · sections · mood · vocals (a few seconds)');$('bpmRow').classList.add('hidden');
@@ -89,7 +89,7 @@ async function loadAudioFile(f,store){
   applyAnalysis(an)}
 /* ---------- no audio file: length + tempo, silent export ---------- */
 let MANUAL=null,tapT=[];
-function useManual(m,quiet){MANUAL=m;lsSet('rz_manual',JSON.stringify(m));if(!m.yt&&(YT_ON||YTP))ytClose();
+function useManual(m,quiet){MANUAL=m;lsSet('rz_manual',JSON.stringify(m));if(!m.yt&&(YT_ON||YTP)){ytClose();$('ytPrimeRow').classList.add('hidden')}
   if(hasAudio){au.pause();au.removeAttribute('src');au.load();hasAudio=false;AUDIO_FILE=null;AUDIO_TITLE='';$('audioName').textContent=T('음원 없음 · 소리 없는 영상으로 만들어요','No audio · making a silent video');projStoreAudio(null)}
   playing=false;clockT=0;setSong(manualSong(m.dur,m.bpm));build();autoPick();refreshInfo();saveMeta();$('bpmRow').classList.add('hidden');
   $('anInfo').innerHTML=`<b>${m.yt?T('유튜브로 만들기','From YouTube'):T('음원 없이 만들기','No audio file')}</b> · ${fmtT(m.dur).replace(/\.\d+$/,'')} · ${m.bpm} BPM`;
@@ -103,7 +103,7 @@ const YT_READY=()=>T('준비됐어요. 노래는 오른쪽 유튜브 플레이�
   'Ready. The song plays in the YouTube player on the right (⇅ moves it up or down). Preview with <b>▶ Play</b> and tap along in <b>05 Sync</b>. Unsure of the BPM? Press <b>Tap the beat</b> while it plays. The saved video is silent — add the same song in the Reels/TikTok/Shorts editor, starting at 0:00.');
 function openYt(id,quiet){$('ytMsg').innerHTML=quiet?'':T('유튜브 영상을 불러오는 중…','Loading the YouTube video…');
   return ytOpen(id).then(({dur})=>{const d=Math.round(dur*100)/100;$('inMin').value=Math.floor(d/60);$('inSec').value=Math.round(d%60);
-    useManual({dur:d,bpm:MANUAL&&MANUAL.yt===id?MANUAL.bpm:Math.round(clamp(+$('inBpm').value||120,60,200)*10)/10,yt:id},quiet);$('ytMsg').innerHTML=YT_READY()})
+    useManual({dur:d,bpm:MANUAL&&MANUAL.yt===id?MANUAL.bpm:Math.round(clamp(+$('inBpm').value||120,60,200)*10)/10,yt:id},quiet);$('ytMsg').innerHTML=YT_READY();$('ytPrimeRow').classList.remove('hidden')})
   .catch(e=>{$('ytMsg').innerHTML='<b>'+esc(e.message)+'</b>'})}
 $('bYt').onclick=()=>{const id=ytId($('inYt').value);if(!id){$('ytMsg').innerHTML=T('<b>유튜브 링크</b>를 붙여 넣어 주세요 (youtube.com/watch?v=…, youtu.be/…, 쇼츠 링크).','Paste a <b>YouTube link</b> (youtube.com/watch?v=…, youtu.be/…, or a Shorts link).');return}openYt(id)};
 /* tempo typed or tapped while in no-audio mode applies right away (keeps the YouTube video) */
@@ -142,12 +142,12 @@ function startSync(from){if(!LINES.length||EXPORTING)return;from=clamp(from|0,0,
   setRate(SLOW?0.75:1);syncShow();
   const L=LINES[from],lead=Math.min(L.start-3,from>0?LINES[from-1].start-0.3:Infinity);   // start a little before the previous line so there's context
   const at=hasAudio||from>0?Math.max(0,lead+OFF):0;seekTo(at);
-  if(hasAudio||YT_ON){startPlay();return}
+  if(hasAudio||ytActive()){startPlay();return}
   /* no audio here: the song plays in another app, so count down and let the user press play there at the same moment */
   let n=3;const tick=()=>{if(!syncMode)return;if(n===0){$('syncInfo').innerHTML='<div class="k">TAP SYNC</div>'+T('지금 재생!','Play now!');startPlay();setTimeout(()=>{if(syncMode)syncShow()},700);return}
     const tt=fmtT(at).replace(/\.\d+$/,'');$('syncInfo').innerHTML=`<div class="k">TAP SYNC · ${n}</div>`+T(`다른 앱에서 노래를 <b>${tt}</b>에 맞춰 두고, 0이 되는 순간 재생하세요`,`Cue the song to <b>${tt}</b> in your music app and press play at 0`);n--;syncCD=setTimeout(tick,1000)};tick()}
 let syncCD=0;
-function syncTap(){if(syncIdx>=LINES.length||!playing)return;const w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
+function syncTap(){if(syncIdx>=LINES.length||!playing)return;if(ytActive()&&YT_AD){const e=$('ytAd');e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash');return}   // no taps while an ad playsconst w=performance.now();if(w-tapWall<120)return;tapWall=w;   // ignore accidental double taps
   let t=now()-0.08*RATE;if(SNAP&&hasAudio)t=snapToVocal(t);   // tap correction: nearest vocal onset within −0.2/+0.12 s
   syncHist.push({i:syncIdx,prev:overrides[syncIdx],auto:autoSet.has(syncIdx)});overrides[syncIdx]=t-OFF;autoSet.delete(syncIdx);applyTimes();saveOverrides();syncIdx++;syncShow();
   if(syncIdx>=LINES.length)setTimeout(()=>{if(syncMode&&syncIdx>=LINES.length)endSync()},600)}
@@ -232,6 +232,7 @@ function pickMime(){if(!window.MediaRecorder)return null;for(const m of ['video/
 async function startRec(){
   const out=$('recOut');if(EXPORTING||recording)return;
   const mime=pickMime();if(mime===null||!cv.captureStream){out.innerHTML=T('<b>이 브라우저는 화면 녹화를 지원하지 않아요.</b> 재생 중 화면 기록(제어 센터)으로 저장해 주세요.','<b>This browser can\'t record the canvas.</b> Use screen recording (Control Centre) while it plays.');return}
+  if(YT_ON){try{YTP.pauseVideo()}catch(e){}playing=false;YT_HOLD=true;ytSetAd(false)}   // silent recording on the internal clock: no ads, no buffering
   setRate(1);if(hasAudio){ensureGraph();if(actx)await actx.resume()}
   const vs=cv.captureStream(30);const tracks=[...vs.getVideoTracks()];if(msDest&&hasAudio)tracks.push(...msDest.stream.getAudioTracks());
   try{recorder=new MediaRecorder(new MediaStream(tracks),mime?{mimeType:mime,videoBitsPerSecond:14000000}:{videoBitsPerSecond:14000000})}catch(e){out.innerHTML=T('<b>녹화를 시작하지 못했어요.</b> ','<b>Couldn\'t start recording.</b> ')+esc(e.message);return}
@@ -240,7 +241,7 @@ async function startRec(){
   hideSetup();seekTo(0);out.textContent='';wake(true);await new Promise(r=>setTimeout(r,150));
   recorder.start(1000);recording=true;$('recBadge').classList.remove('hidden');await startPlay();pokeHud();
 }
-function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden');wake(false)}
+function stopRec(){if(recorder&&recording){recording=false;try{recorder.stop()}catch(e){}}$('recBadge').classList.add('hidden');wake(false);if(YT_HOLD){YT_HOLD=false;playing=false}}
 
 /* ---------- init ---------- */
 /* ---------- language: markup is Korean; English comes from data-en / data-en-ph / data-en-al. Switching reloads. ---------- */

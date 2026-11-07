@@ -111,6 +111,9 @@ details.help code{font-family:"Space Mono",ui-monospace,Menlo,monospace;color:#f
 #syncBar .hbtn{background:#fff;color:#070707;border:0}
 #syncBar .hbtn:disabled{opacity:.45}
 #ytBox{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);width:200px;height:200px;z-index:12;background:#000;border:1px solid #3a3632}
+#ytAd{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 12px);transform:translateX(-50%);z-index:13;background:#ffd400;color:#070707;
+  font:700 13px -apple-system,"Apple SD Gothic Neo",sans-serif;padding:10px 14px;max-width:calc(100vw - 32px);text-align:center}
+#ytAd.flash{animation:adflash .5s 2}@keyframes adflash{50%{transform:translateX(-50%) scale(1.08)}}
 #ytBox.top{bottom:auto;top:calc(env(safe-area-inset-top) + 64px)}
 #ytSlot,#ytBox iframe,#ytPlayer{display:block;width:100%;height:100%;border:0}
 #ytMove{position:absolute;right:-1px;top:-45px;width:48px;padding:0}
@@ -131,6 +134,7 @@ body.yt #setup{padding-bottom:calc(env(safe-area-inset-bottom) + 300px)}
 </div>
 <div id="syncBar" class="hidden"><div id="syncInfo"></div><button class="hbtn" id="syncUndo" data-en="Undo">되돌리기</button><button class="hbtn" id="syncStop" data-en="Done">끝내기</button></div>
 <div id="recBadge" class="hidden">● REC</div>
+<div id="ytAd" class="hidden" role="status"><span data-en="Ad playing · the lyrics continue when the song starts">광고 중 · 노래가 시작되면 가사가 이어서 나와요</span></div>
 <div id="ytBox" class="hidden"><button class="hbtn" id="ytMove" type="button" aria-label="플레이어 위치 옮기기" data-en-al="Move the player">⇅</button><div id="ytSlot"><div id="ytPlayer"></div></div></div>
 <div id="endBar" class="hidden"><button class="btn primary" id="endReplay" data-en="↺ Replay">↺ 다시 보기</button><button class="btn rec" id="endSave" data-en="● Save video">● 영상으로 저장</button><button class="btn ghost" id="endSetup" data-en="Settings">설정</button></div>
 
@@ -160,6 +164,7 @@ body.yt #setup{padding-bottom:calc(env(safe-area-inset-bottom) + 300px)}
       <div class="fields" style="margin-top:8px">
         <label><span data-en="YouTube link">유튜브 링크</span><span class="row tight"><input id="inYt" type="url" inputmode="url" autocomplete="off" placeholder="https://youtu.be/…" data-en-ph="https://youtu.be/…"><button class="btn ghost" id="bYt" type="button" data-en="Load">불러오기</button></span></label>
       </div>
+      <div class="row hidden" id="ytPrimeRow"><button class="btn ghost" id="bYtPrime" type="button" data-en="Skip the ad first">광고 먼저 넘기기</button></div>
       <div class="note" id="ytMsg" data-en="The song plays in YouTube's own player here and the lyrics follow it — nothing is downloaded. Or enter the length yourself below.">노래는 이 화면의 유튜브 플레이어에서 재생되고 가사가 그 시간에 맞춰 움직여요 (내려받지 않아요). 아니면 아래에 곡 길이를 직접 넣어도 돼요.</div>
       <div class="fields" style="margin-top:8px">
         <label><span data-en="Song length">곡 길이</span><span class="row tight"><input id="inMin" type="number" inputmode="numeric" min="0" max="20" placeholder="분" data-en-ph="min"><span>:</span><input id="inSec" type="number" inputmode="numeric" min="0" max="59" placeholder="초" data-en-ph="sec"></span></label>
