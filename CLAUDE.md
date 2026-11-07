@@ -16,6 +16,8 @@ picks an art direction, renders the motion on a canvas, and records it to MP4/We
   - `20_lyrics` parser (`*emph*`, `**max**`, `(adlib)`, section headers), section slots, line/word timing, KO/EN demo text
   - `25_autosync` vocal envelope (STFT centre extraction → tonal peaks 0.7–4 kHz → floor; consonant + flux tracks), onsets,
     DP line alignment with user-pinned lines as anchors, `vocalConfidence`, tap correction `snapToVocal` (beta)
+    + `autoWords`: word starts from syllable onsets (dip→rise of `vox`) aligned to syllables by DP; word timings live in
+    `wover` (offsets from the line start, `rz_word_*`), set by auto words or word tap sync
   - `30_directions` six art directions (fonts, palettes per section role, backgrounds, mode pools, motion, post-FX)
   - `35_director` mood → direction, per-line mode assignment, emphasis, AI director (`sample` capability)
   - `40_text` canvases, font roles (d/s/m/l/h), `A()` alpha convention, layout engine

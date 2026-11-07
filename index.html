@@ -643,7 +643,7 @@ function vocalEnvelope(L,R,sr){
 /* share of the song where the vocal envelope is near silent: vocal-led mixes ~0.45+, a centred lead playing throughout ~0.25 */
 function vocalConfidence(){const v=SONG&&SONG.vox;if(!v||!v.length)return 0;return v.filter(x=>x<5).length/v.length}
 
-const AS={skip:0.5,longW:1,secW:0.04,shortW:1.5,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2,gapW:1,gapFull:0.6,gapPh:0.18};   // tuned in-app on synthetic TTS mixes
+const AS={skip:0.15,longW:2,secW:0.04,shortW:3,weakW:0.4,dipR:0.55,reW:0.5,endSkip:0.2,gapW:1,gapFull:0.4,gapPh:0};   // tuned in-app on 10 TTS mixes   // tuned in-app on synthetic TTS mixes
 function vocalOnsets(env){
   if(env._vc)return env._vc;
   const {vox,vfx}=env,hz=env.voxHz,cn=env.cns?env.cns.map(x=>x/100):null,n=vox.length,v=new Float32Array(n),fx=new Float32Array(n);
